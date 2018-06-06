@@ -28,6 +28,7 @@ import (
 	"strconv"
 	"strings"
 	"golang.org/x/net/http2"
+	"encoding/json"
 )
 
 const HEADER_END = "\n"
@@ -42,6 +43,7 @@ func (err *FSError) Error() string {
 
 // MercuryFsService defines the file server and directory server API
 type MercuryFsService struct {
+	Users  *HdaUsers
 	Shares *HdaShares
 	Apps   *HdaApps
 
@@ -66,6 +68,7 @@ type MercuryFsService struct {
 func NewMercuryFSService(root_dir, local_addr string) (service *MercuryFsService, err error) {
 	service = new(MercuryFsService)
 
+	service.Users = NewHdaUsers()
 	service.Shares, err = NewHdaShares(root_dir)
 	if err != nil {
 		debug(3, "Error making HdaShares: %s", err.Error())
@@ -75,6 +78,7 @@ func NewMercuryFSService(root_dir, local_addr string) (service *MercuryFsService
 
 	// set up API mux
 	api_router := mux.NewRouter()
+	api_router.HandleFunc("/auth", service.authenticate).Methods("POST")
 	api_router.HandleFunc("/shares", service.serve_shares).Methods("GET")
 	api_router.HandleFunc("/files", service.serve_file).Methods("GET")
 	api_router.HandleFunc("/files", service.delete_file).Methods("DELETE")
@@ -88,7 +92,7 @@ func NewMercuryFSService(root_dir, local_addr string) (service *MercuryFsService
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", http.HandlerFunc(service.top_vhost_filter))
 
-	service.server = &http.Server{TLSConfig: service.TLSConfig, Handler:mux}
+	service.server = &http.Server{TLSConfig: service.TLSConfig, Handler: mux}
 
 	service.info = new(HdaInfo)
 	service.info.version = VERSION
@@ -258,7 +262,7 @@ func (service *MercuryFsService) serve_file(writer http.ResponseWriter, request 
 
 	// we use for etag the sha1sum of the full path followed the mtime
 	mtime := fi.ModTime().UTC().Format(http.TimeFormat)
-	etag := `"`+sha1string(path+mtime)+`"`
+	etag := `"` + sha1string(path+mtime) + `"`
 	inm := request.Header.Get("If-None-Match")
 	if inm == etag {
 		debug(4, "If-None-Match match found for %s", etag)
@@ -275,6 +279,40 @@ func (service *MercuryFsService) serve_file(writer http.ResponseWriter, request 
 	}
 
 	return
+}
+
+func (service *MercuryFsService) authenticate(writer http.ResponseWriter, request *http.Request) {
+	decoder := json.NewDecoder(request.Body)
+	data := make(map[string]interface{})
+	err := decoder.Decode(&data)
+	if err != nil {
+		panic(err)
+	}
+	defer request.Body.Close()
+	pin, ok := data["pin"].(string)
+	if !ok {
+		// pin is not a string
+		writer.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	user, err := service.Users.queryUser(pin)
+	switch {
+	case err == sql.ErrNoRows:
+		log("No user with pin: %s", pin)
+		writer.WriteHeader(http.StatusUnauthorized)
+		break
+	case err != nil:
+		writer.WriteHeader(http.StatusInternalServerError)
+		log(err.Error())
+		break
+	default:
+		respJson := fmt.Sprintf("{\"session_token\": \"%s\"}", user.SessionToken)
+		writer.WriteHeader(http.StatusOK)
+		size := int64(len(respJson))
+		writer.Header().Set("Content-Length", strconv.FormatInt(size, 10))
+		writer.Header().Set("Content-Type", "application/json")
+		writer.Write([]byte(respJson))
+	}
 }
 
 func (service *MercuryFsService) serve_shares(writer http.ResponseWriter, request *http.Request) {
@@ -553,7 +591,7 @@ func (service *MercuryFsService) delete_file(writer http.ResponseWriter, request
 			log("\"DELETE %s\" 417 0 \"%s\"", query, ua)
 			return
 		}
-	}	else {
+	} else {
 		debug(2, "NOTICE: Running in no-delete mode. Would have deleted: %s", full_path)
 	}
 
@@ -626,7 +664,7 @@ func (service *MercuryFsService) upload_file(writer http.ResponseWriter, request
 
 		debug(2, "POST of a file upload parsed successfully")
 
-	}	else {
+	} else {
 		debug(2, "NOTICE: Running in no-upload mode.")
 	}
 
