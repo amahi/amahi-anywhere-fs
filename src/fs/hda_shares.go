@@ -24,17 +24,19 @@ import (
 )
 
 type HdaShare struct {
+	id         int
 	name       string
-	updated_at time.Time
+	updatedAt  time.Time
 	path       string
-	tags	string
+	tags       string
+	isWritable bool
 }
 
 type HdaShares struct {
 	Shares      []*HdaShare
 	LastChecked time.Time
 	sync.RWMutex
-	root_dir string
+	root_dir    string
 }
 
 func NewHdaShares(root_dir string) (*HdaShares, error) {
@@ -70,7 +72,7 @@ func (this *HdaShares) update_sql_shares() error {
 	newShares := make([]*HdaShare, 0)
 	for rows.Next() {
 		share := new(HdaShare)
-		rows.Scan(&share.name, &share.updated_at, &share.path, &share.tags)
+		rows.Scan(&share.name, &share.updatedAt, &share.path, &share.tags)
 		debug(5, "share found: %s\n", share.name)
 		newShares = append(newShares, share)
 	}
@@ -106,11 +108,13 @@ func (this *HdaShares) update_dir_shares() (nil error) {
 	for i := range fis {
 		if fis[i].IsDir() && strings.Index(fis[i].Name(), ".") != 0 {
 			share := new(HdaShare)
+			share.id = i
 			share.name = fis[i].Name()
-			share.updated_at = fis[i].ModTime()
+			share.updatedAt = fis[i].ModTime()
 			share.tags = fis[i].Name()
 			prefix, _ := filepath.Abs(this.root_dir)
 			share.path = prefix + "/" + fis[i].Name()
+			share.isWritable = true
 			newShares = append(newShares, share)
 		}
 	}
@@ -132,25 +136,24 @@ func (this *HdaShares) Get(shareName string) *HdaShare {
 	return nil
 }
 
-func (this *HdaShares) to_json() string {
-	if len(this.Shares) < 1 {
+func SharesJson(shares []*HdaShare) string {
+	if len(shares) < 1 {
 		return "[]"
 	}
 
 	ss := []string{}
-	this.RLock()
 
-	for i := range this.Shares {
+	for i := range shares {
 		temp := "{"
 		// NB: 'name' and 'mtime' are used because of API spec
-		temp += fmt.Sprintf(`"name": "%s", `, this.Shares[i].name)
-		temp += fmt.Sprintf(`"mtime": "%s", `, this.Shares[i].updated_at.Format(http.TimeFormat))
-		temp += fmt.Sprintf(`"tags": [%s]`, strings.Join(this.Shares[i].tags_list(), ", "))
+		temp += fmt.Sprintf(`"name": "%s", `, shares[i].name)
+		temp += fmt.Sprintf(`"mtime": "%s", `, shares[i].updatedAt.Format(http.TimeFormat))
+		temp += fmt.Sprintf(`"tags": [%s],`, strings.Join(shares[i].tags_list(), ", "))
+		temp += fmt.Sprintf(`"is_writable": %t`, shares[i].isWritable)
 		temp += "}"
 		ss = append(ss, temp)
 	}
 
-	this.RUnlock()
 	result := "[\n  "
 	result += strings.Join(ss, ",\n  ")
 	result += "\n]"
@@ -178,7 +181,7 @@ func (s *HdaShare) tags_list() []string {
 // start a metadata pre-fill of the database in the background
 func (this *HdaShares) start_metadata_prefill(library *metadata.Library) {
 	// start it up after some time, to prevent overloads
-	time.Sleep(15*time.Second)
+	time.Sleep(15 * time.Second)
 	for i := range this.Shares {
 		path := this.Shares[i].path
 		tags := strings.ToLower(this.Shares[i].tags)
@@ -193,4 +196,3 @@ func (this *HdaShares) start_metadata_prefill(library *metadata.Library) {
 		}
 	}
 }
-

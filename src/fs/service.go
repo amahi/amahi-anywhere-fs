@@ -28,7 +28,7 @@ import (
 	"strconv"
 	"strings"
 	"golang.org/x/net/http2"
-	"encoding/json"
+	"time"
 )
 
 const HEADER_END = "\n"
@@ -80,9 +80,9 @@ func NewMercuryFSService(root_dir, local_addr string) (service *MercuryFsService
 	api_router := mux.NewRouter()
 	api_router.HandleFunc("/auth", service.authenticate).Methods("POST")
 	api_router.HandleFunc("/shares", service.serve_shares).Methods("GET")
-	api_router.HandleFunc("/files", service.serve_file).Methods("GET")
-	api_router.HandleFunc("/files", service.delete_file).Methods("DELETE")
-	api_router.HandleFunc("/files", service.upload_file).Methods("POST")
+	api_router.HandleFunc("/files", use(service.serve_file, service.shareReadAccess)).Methods("GET")
+	api_router.HandleFunc("/files", use(service.delete_file, service.shareWriteAccess)).Methods("DELETE")
+	api_router.HandleFunc("/files", use(service.upload_file, service.shareWriteAccess)).Methods("POST")
 	api_router.HandleFunc("/apps", service.apps_list).Methods("GET")
 	api_router.HandleFunc("/md", service.get_metadata).Methods("GET")
 	api_router.HandleFunc("/hda_debug", service.hda_debug).Methods("GET")
@@ -110,7 +110,7 @@ func NewMercuryFSService(root_dir, local_addr string) (service *MercuryFsService
 	// This will be set when the HDA connects to the proxy
 	service.info.relay_addr = ""
 
-	debug(3, "Amahi FS Service started %s", service.Shares.to_json())
+	debug(3, "Amahi FS Service started %s", SharesJson(service.Shares.Shares))
 	debug(4, "HDA Info: %s", service.info.to_json())
 
 	return service, err
@@ -119,7 +119,7 @@ func NewMercuryFSService(root_dir, local_addr string) (service *MercuryFsService
 // String returns FileDirectoryRoot and CurrentDirectory with a newline between them
 func (service *MercuryFsService) String() string {
 	// TODO: Possibly change this to present a more formatted string
-	return service.Shares.to_json()
+	return SharesJson(service.Shares.Shares)
 }
 
 func (service *MercuryFsService) hda_debug(writer http.ResponseWriter, request *http.Request) {
@@ -281,44 +281,26 @@ func (service *MercuryFsService) serve_file(writer http.ResponseWriter, request 
 	return
 }
 
-func (service *MercuryFsService) authenticate(writer http.ResponseWriter, request *http.Request) {
-	decoder := json.NewDecoder(request.Body)
-	data := make(map[string]interface{})
-	err := decoder.Decode(&data)
-	if err != nil {
-		panic(err)
-	}
-	defer request.Body.Close()
-	pin, ok := data["pin"].(string)
-	if !ok {
-		// pin is not a string
-		writer.WriteHeader(http.StatusBadRequest)
+func (service *MercuryFsService) serve_shares(writer http.ResponseWriter, request *http.Request) {
+	authToken := request.Header.Get("Authorization")
+	user := service.Users.find(authToken)
+	if user == nil {
+		http.Error(writer, "Authentication Failed", http.StatusUnauthorized)
 		return
 	}
-	user, err := service.Users.queryUser(pin)
-	switch {
-	case err == sql.ErrNoRows:
-		log("No user with pin: %s", pin)
-		writer.WriteHeader(http.StatusUnauthorized)
-		break
-	case err != nil:
-		writer.WriteHeader(http.StatusInternalServerError)
-		log(err.Error())
-		break
-	default:
-		respJson := fmt.Sprintf("{\"session_token\": \"%s\"}", user.SessionToken)
-		writer.WriteHeader(http.StatusOK)
-		size := int64(len(respJson))
-		writer.Header().Set("Content-Length", strconv.FormatInt(size, 10))
-		writer.Header().Set("Content-Type", "application/json")
-		writer.Write([]byte(respJson))
+	var shares []*HdaShare
+	var err error
+	if service.Shares.root_dir == "" {
+		shares, err = user.AvailableShares()
+		if err != nil {
+			http.Error(writer, "Internal Server Error", http.StatusInternalServerError)
+		}
+	} else {
+		service.Shares.update_shares()
+		shares = service.Shares.Shares
 	}
-}
-
-func (service *MercuryFsService) serve_shares(writer http.ResponseWriter, request *http.Request) {
-	service.Shares.update_shares()
-	debug(5, "========= DEBUG Share request: %d", len(service.Shares.Shares))
-	json := service.Shares.to_json()
+	debug(5, "========= DEBUG Share request: %d", len(shares))
+	json := SharesJson(shares)
 	debug(5, "Share JSON: %s", json)
 	etag := `"` + sha1bytes([]byte(json)) + `"`
 	inm := request.Header.Get("If-None-Match")
@@ -330,7 +312,7 @@ func (service *MercuryFsService) serve_shares(writer http.ResponseWriter, reques
 		debug(4, "If-None-Match (%s) match NOT found for Etag %s", inm, etag)
 		size := int64(len(json))
 		writer.Header().Set("Content-Length", strconv.FormatInt(size, 10))
-		writer.Header().Set("Last-Modified", service.Shares.LastChecked.Format(http.TimeFormat))
+		writer.Header().Set("Last-Modified", time.Now().Format(http.TimeFormat))
 		writer.Header().Set("ETag", etag)
 		writer.Header().Set("Content-Type", "application/json")
 		writer.Header().Set("Cache-Control", "max-age=0, private, must-revalidate")
