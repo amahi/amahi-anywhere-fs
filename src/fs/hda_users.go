@@ -131,7 +131,7 @@ func (user *HdaUser) AvailableShares() ([]*HdaShare, error) {
 	newShares := make([]*HdaShare, 0)
 	for rows.Next() {
 		share := new(HdaShare)
-		rows.Scan(&share.name, &share.updatedAt, &share.path, &share.tags, &share.isWritable)
+		rows.Scan(&share.name, &share.updatedAt, &share.path, &share.tags, &share.writable)
 		newShares = append(newShares, share)
 	}
 	return newShares, nil

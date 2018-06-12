@@ -24,11 +24,11 @@ import (
 )
 
 type HdaShare struct {
-	name       string
-	updatedAt  time.Time
-	path       string
-	tags       string
-	isWritable bool
+	name      string
+	updatedAt time.Time
+	path      string
+	tags      string
+	writable  bool
 }
 
 type HdaShares struct {
@@ -112,7 +112,7 @@ func (shares *HdaShares) updateDirShares() (nil error) {
 			share.tags = fis[i].Name()
 			prefix, _ := filepath.Abs(shares.rootDir)
 			share.path = prefix + "/" + fis[i].Name()
-			share.isWritable = true
+			share.writable = true
 			newShares = append(newShares, share)
 		}
 	}
@@ -147,7 +147,7 @@ func SharesJson(shares []*HdaShare) string {
 		temp += fmt.Sprintf(`"name": "%s", `, shares[i].name)
 		temp += fmt.Sprintf(`"mtime": "%s", `, shares[i].updatedAt.Format(http.TimeFormat))
 		temp += fmt.Sprintf(`"tags": [%s],`, strings.Join(shares[i].tagsList(), ", "))
-		temp += fmt.Sprintf(`"is_writable": %t`, shares[i].isWritable)
+		temp += fmt.Sprintf(`"writable": %t`, shares[i].writable)
 		temp += "}"
 		ss = append(ss, temp)
 	}
