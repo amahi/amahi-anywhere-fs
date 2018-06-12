@@ -84,9 +84,12 @@ func (user *HdaUser) AvailableShares() ([]*HdaShare, error) {
 		return nil, err
 	}
 	defer dbconn.Close()
-	q := "SELECT s.id, s.name, s.updated_at, s.path, s.tags FROM cap_accesses as ca " +
+	q := "SELECT s.id, s.name, s.updated_at, s.path, s.tags, " +
+		"CASE WHEN cw.id IS NULL THEN 'false' ELSE 'true' END AS writable " +
+		"FROM cap_accesses as ca " +
 		"INNER JOIN shares AS s ON s.id = ca.share_id " +
 		"INNER JOIN users AS u ON u.id = ca.user_id " +
+		"LEFT JOIN cap_writers AS cw ON ca.user_id = cw.user_id AND ca.share_id = cw.share_id " +
 		"WHERE u.id = ? AND s.visible = 1 ORDER BY s.name ASC;"
 	rows, err := dbconn.Query(q, user.id)
 	if err != nil {
@@ -96,7 +99,7 @@ func (user *HdaUser) AvailableShares() ([]*HdaShare, error) {
 	newShares := make([]*HdaShare, 0)
 	for rows.Next() {
 		share := new(HdaShare)
-		rows.Scan(&share.Name, &share.UpdatedAt, &share.Path, &share.Tags)
+		rows.Scan(&share.Name, &share.UpdatedAt, &share.Path, &share.Tags, &share.IsWritable)
 		newShares = append(newShares, share)
 	}
 	return newShares, nil
