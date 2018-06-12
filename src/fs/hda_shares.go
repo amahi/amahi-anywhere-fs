@@ -24,12 +24,11 @@ import (
 )
 
 type HdaShare struct {
-	id         int
-	Name       string    `json:"name"`
-	UpdatedAt  time.Time `json:"updated_at"`
-	Path       string    `json:"path"`
-	Tags       string    `json:"tags"`
-	IsWritable bool      `json:"is_writable"`
+	name       string
+	updatedAt  time.Time
+	path       string
+	tags       string
+	isWritable bool
 }
 
 type HdaShares struct {
@@ -72,8 +71,8 @@ func (shares *HdaShares) updateSqlShares() error {
 	newShares := make([]*HdaShare, 0)
 	for rows.Next() {
 		share := new(HdaShare)
-		rows.Scan(&share.Name, &share.UpdatedAt, &share.Path, &share.Tags)
-		debug(5, "share found: %s\n", share.Name)
+		rows.Scan(&share.name, &share.updatedAt, &share.path, &share.tags)
+		debug(5, "share found: %s\n", share.name)
 		newShares = append(newShares, share)
 	}
 
@@ -108,13 +107,12 @@ func (shares *HdaShares) updateDirShares() (nil error) {
 	for i := range fis {
 		if fis[i].IsDir() && strings.Index(fis[i].Name(), ".") != 0 {
 			share := new(HdaShare)
-			share.id = i
-			share.Name = fis[i].Name()
-			share.UpdatedAt = fis[i].ModTime()
-			share.Tags = fis[i].Name()
+			share.name = fis[i].Name()
+			share.updatedAt = fis[i].ModTime()
+			share.tags = fis[i].Name()
 			prefix, _ := filepath.Abs(shares.rootDir)
-			share.Path = prefix + "/" + fis[i].Name()
-			share.IsWritable = true
+			share.path = prefix + "/" + fis[i].Name()
+			share.isWritable = true
 			newShares = append(newShares, share)
 		}
 	}
@@ -129,7 +127,7 @@ func (shares *HdaShares) updateDirShares() (nil error) {
 
 func (shares *HdaShares) Get(shareName string) *HdaShare {
 	for i := range shares.Shares {
-		if shares.Shares[i].Name == shareName {
+		if shares.Shares[i].name == shareName {
 			return shares.Shares[i]
 		}
 	}
@@ -146,10 +144,10 @@ func SharesJson(shares []*HdaShare) string {
 	for i := range shares {
 		temp := "{"
 		// NB: 'name' and 'mtime' are used because of API spec
-		temp += fmt.Sprintf(`"name": "%s", `, shares[i].Name)
-		temp += fmt.Sprintf(`"mtime": "%s", `, shares[i].UpdatedAt.Format(http.TimeFormat))
+		temp += fmt.Sprintf(`"name": "%s", `, shares[i].name)
+		temp += fmt.Sprintf(`"mtime": "%s", `, shares[i].updatedAt.Format(http.TimeFormat))
 		temp += fmt.Sprintf(`"tags": [%s],`, strings.Join(shares[i].tagsList(), ", "))
-		temp += fmt.Sprintf(`"is_writable": %t`, shares[i].IsWritable)
+		temp += fmt.Sprintf(`"is_writable": %t`, shares[i].isWritable)
 		temp += "}"
 		ss = append(ss, temp)
 	}
@@ -162,13 +160,13 @@ func SharesJson(shares []*HdaShare) string {
 
 // external interface to the path of a share
 func (s *HdaShare) GetPath() string {
-	return s.Path
+	return s.path
 }
 
 // return a list of tags, cleaned up
 func (s *HdaShare) tagsList() []string {
 	re := regexp.MustCompile(`(\s*,+\s*)+`)
-	ta := re.Split(s.Tags, -1)
+	ta := re.Split(s.tags, -1)
 	r := make([]string, 0)
 	for _, tag := range ta {
 		if tag != "" {
@@ -183,9 +181,9 @@ func (shares *HdaShares) startMetadataPrefill(library *metadata.Library) {
 	// start it up after some time, to prevent overloads
 	time.Sleep(15 * time.Second)
 	for i := range shares.Shares {
-		path := shares.Shares[i].Path
-		tags := strings.ToLower(shares.Shares[i].Tags)
-		debug(5, `checking share "%s" (%s)  with tags: %s\n`, shares.Shares[i].Name, path, tags)
+		path := shares.Shares[i].path
+		tags := strings.ToLower(shares.Shares[i].tags)
+		debug(5, `checking share "%s" (%s)  with tags: %s\n`, shares.Shares[i].name, path, tags)
 		if path == "" || tags == "" {
 			continue
 		}

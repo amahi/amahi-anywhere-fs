@@ -58,7 +58,7 @@ func (users *HdaUsers) queryUser(pin string) (*string, error) {
 	return &authToken, nil
 }
 
-func (users *HdaUsers) updateUserIfExists(newUser *HdaUser) string {
+func (users *HdaUsers) updateUserIfExists(newUser *HdaUser) (authToken string) {
 	for authToken, user := range users.Users {
 		if user.id == newUser.id {
 			newUser.LastCheckedAt = time.Now()
@@ -68,13 +68,45 @@ func (users *HdaUsers) updateUserIfExists(newUser *HdaUser) string {
 			return authToken
 		}
 	}
-	return ""
+	return
 }
 
 func (users *HdaUsers) find(authToken string) *HdaUser {
 	users.Lock()
 	defer users.Unlock()
-	return users.Users[authToken]
+	user := users.Users[authToken]
+	if user != nil {
+		if time.Now().Sub(user.LastCheckedAt) > time.Minute*5 {
+			isValid, err := users.revalidateSession(authToken, user)
+			if isValid || (!isValid && err != nil) {
+				user.LastRequestAt = time.Now()
+			} else {
+				user = nil
+			}
+		}
+	}
+	return user
+}
+
+func (users *HdaUsers) revalidateSession(authToken string, user *HdaUser) (isValid bool, err error) {
+	dbconn, err := sql.Open("mysql", MYSQL_CREDENTIALS)
+	if err != nil {
+		log(err.Error())
+		return
+	}
+	defer dbconn.Close()
+	q := "SELECT updated_at FROM users WHERE id=?"
+	var updatedAt time.Time
+	err = dbconn.QueryRow(q, user.id).Scan(&updatedAt)
+	if err != nil {
+		return
+	}
+	if updatedAt != user.UpdatedAt {
+		delete(users.Users, authToken)
+		return
+	}
+	user.LastCheckedAt = time.Now()
+	return true, nil
 }
 
 func (user *HdaUser) AvailableShares() ([]*HdaShare, error) {
@@ -84,7 +116,7 @@ func (user *HdaUser) AvailableShares() ([]*HdaShare, error) {
 		return nil, err
 	}
 	defer dbconn.Close()
-	q := "SELECT s.id, s.name, s.updated_at, s.path, s.tags, " +
+	q := "SELECT s.name, s.updated_at, s.path, s.tags, " +
 		"CASE WHEN cw.id IS NULL THEN 'false' ELSE 'true' END AS writable " +
 		"FROM cap_accesses as ca " +
 		"INNER JOIN shares AS s ON s.id = ca.share_id " +
@@ -99,7 +131,7 @@ func (user *HdaUser) AvailableShares() ([]*HdaShare, error) {
 	newShares := make([]*HdaShare, 0)
 	for rows.Next() {
 		share := new(HdaShare)
-		rows.Scan(&share.Name, &share.UpdatedAt, &share.Path, &share.Tags, &share.IsWritable)
+		rows.Scan(&share.name, &share.updatedAt, &share.path, &share.tags, &share.isWritable)
 		newShares = append(newShares, share)
 	}
 	return newShares, nil
