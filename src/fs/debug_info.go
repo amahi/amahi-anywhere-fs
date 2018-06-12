@@ -17,25 +17,25 @@ import (
 type debugInfo struct {
 	last time.Time
 
-	num_requests_received, num_requests_served, num_bytes_served int64
+	numRequestsReceived, numRequestsServed, numBytesServed int64
 
 	sync.RWMutex
 }
 
-func (this *debugInfo) everything() (last_served_time time.Time, num_received, num_served, bytes_served int64) {
-	this.RLock()
-	last_served_time = this.last
-	num_received = this.num_requests_received
-	num_served = this.num_requests_served
-	bytes_served = this.num_bytes_served
-	this.RUnlock()
+func (d *debugInfo) everything() (lastServedTime time.Time, numReceived, numServed, bytesServed int64) {
+	d.RLock()
+	lastServedTime = d.last
+	numReceived = d.numRequestsReceived
+	numServed = d.numRequestsServed
+	bytesServed = d.numBytesServed
+	d.RUnlock()
 	return
 }
 
-func (this *debugInfo) requestServed(bytes_served int64) {
-	this.Lock()
-	this.num_requests_served++
-	this.num_bytes_served += bytes_served
-	this.last = time.Now()
-	this.Unlock()
+func (d *debugInfo) requestServed(bytesServed int64) {
+	d.Lock()
+	d.numRequestsServed++
+	d.numBytesServed += bytesServed
+	d.last = time.Now()
+	d.Unlock()
 }

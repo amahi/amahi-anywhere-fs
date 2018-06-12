@@ -35,67 +35,71 @@ import (
 
 // DANGER DANGER DANGER
 // compile-time only options in case we need to disable checking the certs or https
-const DISABLE_CERT_CHECKING = false
-const DISABLE_HTTPS = false
+const DisableCertChecking = false
+const DisableHttps = false
 
 const VERSION = "1.70"
 
-var no_delete = false
-var no_upload = false
+var noDelete = false
+var noUpload = false
 
 // profiling info
 // func init() { go func() { http.ListenAndServe(":4242", nil) }() }
 
 func main() {
 
-	defer panic_handler()
+	defer panicHandler()
 
 	setup()
 
 	var dbg = 1
-	var http2_debug = false
-	var api_key_flag = ""
-	var root_dir = ""
-	var local_addr = ""
-	var relay_host = PFE_HOST
-	var relay_port = PFE_PORT
+	var http2Debug = false
+	var apiKeyFlag = ""
+	var rootDir = ""
+	var localAddr = ""
+	var relayHost = PFE_HOST
+	var relayPort = PFE_PORT
 
 	// Parse the program inputs
 	if !PRODUCTION {
 		flag.IntVar(&dbg, "d", 1, "print debug information, 1 = nothing printed and 5 = print everything")
-		flag.BoolVar(&http2_debug, "h", false, "HTTP2 debug")
-		flag.StringVar(&api_key_flag, "k", "", "session token used by pfe")
-		flag.StringVar(&root_dir, "r", "", "Use the directories in this directory as shares, instead of the registered HDA shares")
-		flag.StringVar(&local_addr, "l", "", "Use this as the local address of the HDA, or look it up")
-		flag.StringVar(&relay_host, "pfe", PFE_HOST, "address of the pfe")
-		flag.StringVar(&relay_port, "pfe-port", PFE_PORT, "port the pfe is using")
-		flag.BoolVar(&no_delete, "nd", false, "ignore delete requests silently")
-		flag.BoolVar(&no_upload, "nu", false, "ignore upload requests silently")
+		flag.BoolVar(&http2Debug, "h", false, "HTTP2 debug")
+		flag.StringVar(&apiKeyFlag, "k", "", "session token used by pfe")
+		flag.StringVar(&rootDir, "r", "", "Use the directories in this directory as shares, instead of the registered HDA shares")
+		flag.StringVar(&localAddr, "l", "", "Use this as the local address of the HDA, or look it up")
+		flag.StringVar(&relayHost, "pfe", PFE_HOST, "address of the pfe")
+		flag.StringVar(&relayPort, "pfe-port", PFE_PORT, "port the pfe is using")
+		flag.BoolVar(&noDelete, "nd", false, "ignore delete requests silently")
+		flag.BoolVar(&noUpload, "nu", false, "ignore upload requests silently")
 	}
 	flag.Parse()
 
-	api_key := ""
-	if PRODUCTION || (!PRODUCTION && (api_key_flag == "")) {
+	apiKey := ""
+	if PRODUCTION || (!PRODUCTION && (apiKeyFlag == "")) {
 		// no command line override - get it from the db
 		key, err := hda_api_key.HDA_API_key(MYSQL_CREDENTIALS)
 		if err != nil {
 			cleanQuit(2, "Amahi API key was not found")
 		}
-		api_key = key
+		apiKey = key
 	} else {
-		api_key = api_key_flag
+		apiKey = apiKeyFlag
 	}
 
 	if dbg < 1 || dbg > 5 {
 		flag.PrintDefaults()
 		return
 	}
-	debug_level(dbg)
+	debugLevel(dbg)
 
-	if (no_delete) { fmt.Printf("NOTICE: running without deleting content!\n") }
-	if (no_upload) { fmt.Printf("NOTICE: running without uploading content!\n") }
+	if noDelete {
+		fmt.Printf("NOTICE: running without deleting content!\n")
+	}
+	if noUpload {
+		fmt.Printf("NOTICE: running without uploading content!\n")
+	}
 
-	initialize_logging()
+	initializeLogging()
 
 	metadata, err := metadata.Init(100000, METADATA_FILE, TMDB_API_KEY, TVRAGE_API_KEY, TVDB_API_KEY)
 	if err != nil {
@@ -104,32 +108,32 @@ func main() {
 		os.Exit(1)
 	}
 
-	service, err := NewMercuryFSService(root_dir, local_addr)
+	service, err := NewMercuryFSService(rootDir, localAddr)
 	if err != nil {
-		fmt.Printf("Error making service (%s, %s): %s\n", root_dir, local_addr, err.Error())
+		fmt.Printf("Error making service (%s, %s): %s\n", rootDir, localAddr, err.Error())
 		os.Remove(PID_FILE)
 		os.Exit(1)
 	}
 	// start ONE delayed, background metadata prefill of the cache
 	service.metadata = metadata
 
-	go service.Shares.start_metadata_prefill(metadata)
+	go service.Shares.startMetadataPrefill(metadata)
 
 	log("Amahi Anywhere service v%s", VERSION)
 
-	debug(4, "using api-key %s", api_key)
+	debug(4, "using api-key %s", apiKey)
 
-	if http2_debug {
+	if http2Debug {
 		http2.VerboseLogs = true
 	}
 
 	runtime.GOMAXPROCS(1000)
-	go start_local_server(root_dir, metadata)
+	go startLocalServer(rootDir, metadata)
 
 	// Continually connect to the proxy and listen for requests
 	// Reconnect if there is an error
 	for {
-		conn, err := contact_pfe(relay_host, relay_port, api_key, service)
+		conn, err := contactPfe(relayHost, relayPort, apiKey, service)
 		if err != nil {
 			log("Error contacting the proxy.")
 			debug(2, "Error contacting the proxy: %s", err)
@@ -141,36 +145,36 @@ func main() {
 			}
 		}
 		// reconnect fairly quickly, with some randomness
-		sleep_time := time.Duration(2000 + rand.Intn(2000))
-		time.Sleep(sleep_time * time.Millisecond)
+		sleepTime := time.Duration(2000 + rand.Intn(2000))
+		time.Sleep(sleepTime * time.Millisecond)
 	}
 	os.Remove(PID_FILE)
 }
 
 // connect to the proxy and send a POST request with the api-key
-func contact_pfe(relay_host, relay_port, api_key string, service *MercuryFsService) (net.Conn, error) {
+func contactPfe(relayHost, relayPort, apiKey string, service *MercuryFsService) (net.Conn, error) {
 
-	relay_location := relay_host + ":" + relay_port
-	log("Contacting Relay at: " + relay_location)
-	addr, err := net.ResolveTCPAddr("tcp", relay_location)
+	relayLocation := relayHost + ":" + relayPort
+	log("Contacting Relay at: " + relayLocation)
+	addr, err := net.ResolveTCPAddr("tcp", relayLocation)
 	if err != nil {
 		debug(2, "Error with ResolveTCPAddr: %s", err)
 		return nil, err
 	}
 
-	tcp_conn, err := net.DialTCP("tcp", nil, addr)
+	tcpConn, err := net.DialTCP("tcp", nil, addr)
 	if err != nil {
 		debug(2, "Error with initial DialTCP: %s", err)
 		return nil, err
 	}
 
-	tcp_conn.SetKeepAlive(true)
-	tcp_conn.SetLinger(0)
-	service.info.relay_addr = relay_location
+	tcpConn.SetKeepAlive(true)
+	tcpConn.SetLinger(0)
+	service.info.relay_addr = relayLocation
 
-	service.TLSConfig = &tls.Config{ ServerName: relay_host }
+	service.TLSConfig = &tls.Config{ServerName: relayHost}
 
-	if DISABLE_CERT_CHECKING {
+	if DisableCertChecking {
 		warning := "WARNING WARNING WARNING: running without checking TLS certs!!"
 		log(warning)
 		log(warning)
@@ -183,27 +187,27 @@ func contact_pfe(relay_host, relay_port, api_key string, service *MercuryFsServi
 
 	// Send the api-key
 	buf := strings.NewReader(service.info.to_json())
-	request, err := http.NewRequest("PUT", "https://"+relay_location+"/fs", buf)
+	request, err := http.NewRequest("PUT", "https://"+relayLocation+"/fs", buf)
 	if err != nil {
 		debug(2, "Error creating NewRequest:", err)
 		return nil, err
 	}
 
-	request.Header.Add("Api-Key", api_key)
+	request.Header.Add("Api-Key", apiKey)
 	request.Header.Add("Authorization", fmt.Sprintf("Token %s", SECRET_TOKEN))
-	raw_request, _ := httputil.DumpRequest(request, true)
-	debug(5, "%s", raw_request)
+	rawRequest, _ := httputil.DumpRequest(request, true)
+	debug(5, "%s", rawRequest)
 
 	var client *httputil.ClientConn
 
-	if DISABLE_HTTPS {
+	if DisableHttps {
 		warning := "WARNING WARNING: running without TLS!!"
 		log(warning)
 		fmt.Println(warning)
-		conn := tcp_conn
+		conn := tcpConn
 		client = httputil.NewClientConn(conn, nil)
 	} else {
-		conn := tls.Client(tcp_conn, service.TLSConfig)
+		conn := tls.Client(tcpConn, service.TLSConfig)
 		client = httputil.NewClientConn(conn, nil)
 	}
 
@@ -221,9 +225,9 @@ func contact_pfe(relay_host, relay_port, api_key string, service *MercuryFsServi
 
 	log("Connected to the proxy")
 
-	net_con, _ := client.Hijack()
+	netCon, _ := client.Hijack()
 
-	return net_con, nil
+	return netCon, nil
 }
 
 // Clean up and quit
@@ -232,7 +236,7 @@ func cleanQuit(exitCode int, message string) {
 	os.Exit(exitCode)
 }
 
-func panic_handler() {
+func panicHandler() {
 	if v := recover(); v != nil {
 		fmt.Println("PANIC:", v)
 	}
@@ -241,7 +245,7 @@ func panic_handler() {
 
 func setup() error {
 
-	check_pid_file()
+	checkPidFile()
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
@@ -256,7 +260,7 @@ func setup() error {
 	return ioutil.WriteFile(PID_FILE, []byte(strconv.Itoa(os.Getpid())), 0666)
 }
 
-func check_pid_file() {
+func checkPidFile() {
 	if !exists(PID_FILE) {
 		return
 	}

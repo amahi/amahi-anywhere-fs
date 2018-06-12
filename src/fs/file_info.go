@@ -21,10 +21,10 @@ import (
 )
 
 type fileInfo struct {
-	name      string
-	mime_type string
-	mtime     time.Time
-	size      int64
+	name     string
+	mimeType string
+	mtime    time.Time
+	size     int64
 }
 
 type fileSorter struct {
@@ -46,53 +46,54 @@ func (fi *fileSorter) Less(i, j int) bool {
 	return strings.ToLower(fi.files[i].name) < strings.ToLower(fi.files[j].name)
 }
 
-func (this *fileInfo) to_json() string {
-	name, _ := json.Marshal(this.name)
-	return fmt.Sprintf(`{"name": %s, "mime_type": "%s", "mtime": "%s", "size": %d}`, string(name), this.mime_type, this.mtime.Format(http.TimeFormat), this.size)
+func (f *fileInfo) toJson() string {
+	name, _ := json.Marshal(f.name)
+	return fmt.Sprintf(`{"name": %s, "mime_type": "%s", "mtime": "%s", "size": %d}`,
+		string(name), f.mimeType, f.mtime.Format(http.TimeFormat), f.size)
 }
 
-func directory_fileInfos(fis []os.FileInfo, full_path string) []fileInfo {
-	file_infos := []fileInfo{}
+func directoryFileInfos(fis []os.FileInfo, fullPath string) []fileInfo {
+	fileInfos := make([]fileInfo, 0)
 	for i := range fis {
 		if fis[i].Name()[0] == '.' {
 			continue
 		}
-		fileInfo := fileInfo {
+		fileInfo := fileInfo{
 			name:  fis[i].Name(),
 			mtime: fis[i].ModTime(),
 		}
-		if fis[i].IsDir() || isSymlinkDir(fis[i], full_path) {
-			fileInfo.mime_type = "text/directory"
+		if fis[i].IsDir() || isSymlinkDir(fis[i], fullPath) {
+			fileInfo.mimeType = "text/directory"
 			fileInfo.size = 0
 		} else {
-			fileInfo.mime_type = getContentType(fis[i].Name())
+			fileInfo.mimeType = getContentType(fis[i].Name())
 			fileInfo.size = fis[i].Size()
 		}
-		file_infos = append(file_infos, fileInfo)
+		fileInfos = append(fileInfos, fileInfo)
 	}
 
-	sorter := &fileSorter{files: file_infos}
+	sorter := &fileSorter{files: fileInfos}
 
 	sort.Sort(sorter)
 
-	return file_infos
+	return fileInfos
 }
 
-func dirToJSON(osFile *os.File, full_path string) (string, error) {
+func dirToJSON(osFile *os.File, fullPath string) (string, error) {
 	fis, err := osFile.Readdir(0)
 	if err != nil {
 		return "", err
 	}
 
-	file_infos := directory_fileInfos(fis, full_path)
+	fileInfos := directoryFileInfos(fis, fullPath)
 
-	if len(file_infos) == 0 {
+	if len(fileInfos) == 0 {
 		return "[]", nil
 	}
 
-	ss := []string{}
-	for i := range file_infos {
-		temp := file_infos[i].to_json()
+	ss := make([]string, 0)
+	for i := range fileInfos {
+		temp := fileInfos[i].toJson()
 		ss = append(ss, temp)
 	}
 
@@ -140,7 +141,7 @@ func getContentType(fileName string) string {
 		".wtv":  "video/x-ms-wtv",
 		".flv":  "video/x-flv",
 		".3gp":  "video/3gpp",
-		".webm":  "video/webm",
+		".webm": "video/webm",
 		".epub": "application/epub+zip",
 		".mobi": "application/x-mobipocket",
 		".zip":  "application/zip",
@@ -173,12 +174,12 @@ func getContentType(fileName string) string {
 		".html": "text/html",
 		".htm":  "text/html",
 		// subtitle stuff, with others below
-		".srt":  "application/x-subrip",
-		".sub":  "text/vnd.dvb.subtitle",
+		".srt": "application/x-subrip",
+		".sub": "text/vnd.dvb.subtitle",
 	}
 
-	sub_extensions := []string{".idx", ".sub", ".srt", ".ssa", ".ass", ".smi", ".utf", ".utf8", ".utf-8", ".rt", ".aqt", ".usf", ".jss", ".cdg", ".psb", ".mpsub", ".mpl2", ".pjs", ".dks", ".stl", ".vtt"}
-	for _, e := range sub_extensions {
+	subExtensions := []string{".idx", ".sub", ".srt", ".ssa", ".ass", ".smi", ".utf", ".utf8", ".utf-8", ".rt", ".aqt", ".usf", ".jss", ".cdg", ".psb", ".mpsub", ".mpl2", ".pjs", ".dks", ".stl", ".vtt"}
+	for _, e := range subExtensions {
 		encodingMap[e] = "application/x-subtitle"
 	}
 
