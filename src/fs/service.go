@@ -501,6 +501,12 @@ func (service *MercuryFsService) top_vhost_filter(writer http.ResponseWriter, re
 	service.print_request(request)
 
 	vhost := matches[1]
+	app := service.Apps.get(vhost)
+	if app == nil {
+		debug(5, "No matching app found for VHOST %s", vhost)
+		http.Error(writer, "Unknown App", http.StatusNotFound)
+		return
+	}
 
 	debug(5, "VHOST REQUEST FOR %s *************************", vhost)
 
