@@ -61,9 +61,9 @@ func (apps *HdaApps) list() error {
 	return nil
 }
 
-func (apps *HdaApps) get(shareName string) *HdaApp {
+func (apps *HdaApps) get(vhost string) *HdaApp {
 	for i := range apps.Apps {
-		if apps.Apps[i].Name == shareName {
+		if apps.Apps[i].Vhost == vhost {
 			return apps.Apps[i]
 		}
 	}
