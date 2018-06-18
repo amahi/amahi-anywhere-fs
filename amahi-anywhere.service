@@ -1,0 +1,13 @@
+[Unit]
+Description=Amahi Anywhere service
+Requires=syslog.service network.target NetworkManager.service
+After=network.target syslog.service NetworkManager.service mariadb.service
+
+[Service]
+PIDFile=/run/amahi-anywhere.pid
+ExecStart=/usr/bin/amahi-anywhere
+Type=simple
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

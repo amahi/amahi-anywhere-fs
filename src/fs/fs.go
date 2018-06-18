@@ -38,7 +38,7 @@ import (
 const DisableCertChecking = false
 const DisableHttps = false
 
-const VERSION = "1.70"
+const VERSION = "1.83"
 
 var noDelete = false
 var noUpload = false
