@@ -1,4 +1,4 @@
-VERSION=1.70
+VERSION=1.83
 PACKAGE=amahi-anywhere
 RPMBUILDDIR=$(HOME)/rpmbuild
 
