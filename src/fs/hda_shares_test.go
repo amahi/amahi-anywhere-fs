@@ -15,7 +15,7 @@ import (
 )
 
 func TestUpdateShares(t *testing.T) {
-	// NewHdaShares calls update_shares
+	// NewHdaShares calls updateShares
 	test, err := NewHdaShares(".")
 	if err != nil {
 		t.Errorf(". test failed: %s", err.Error())

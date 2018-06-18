@@ -17,33 +17,33 @@ import (
 
 const LOGFILE = "/var/log/amahi-anywhere.log"
 
-var current_debug_level = 3
+var currentDebugLevel = 3
 
 var logger *logging.Logger
 
-func initialize_logging() {
-	log_file, err := os.OpenFile(LOGFILE, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
+func initializeLogging() {
+	logFile, err := os.OpenFile(LOGFILE, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		fmt.Println("WARNING: failed to open ", LOGFILE, " defaulting to standard output")
-		log_file = os.Stdout
+		logFile = os.Stdout
 	}
 
-	logger = logging.New(log_file, "", logging.LstdFlags)
+	logger = logging.New(logFile, "", logging.LstdFlags)
 }
 
 func log(f string, args ...interface{}) {
 	logger.Printf(f, args...)
 }
 
-func debug_level(level int) {
-	current_debug_level = level
+func debugLevel(level int) {
+	currentDebugLevel = level
 }
 
 func debug(level int, f string, args ...interface{}) {
 	if PRODUCTION {
 		return
 	}
-	if level <= current_debug_level {
+	if level <= currentDebugLevel {
 		log(f, args...)
 	}
 }

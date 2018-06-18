@@ -14,17 +14,17 @@ import (
 	"github.com/amahi/go-metadata"
 )
 
-const LOCAL_SERVER_PORT = "4563"
+const LocalServerPort = "4563"
 
-func start_local_server(root_dir string, metadata *metadata.Library) {
-	service, err := NewMercuryFSService(root_dir, ":"+LOCAL_SERVER_PORT)
+func startLocalServer(rootDir string, metadata *metadata.Library) {
+	service, err := NewMercuryFSService(rootDir, ":"+LocalServerPort)
 	if err != nil {
 		log(err.Error())
 		return
 	}
 	service.metadata = metadata
 
-	addr, err := net.ResolveTCPAddr("tcp", ":"+LOCAL_SERVER_PORT)
+	addr, err := net.ResolveTCPAddr("tcp", ":"+LocalServerPort)
 	if err != nil {
 		log("Could not resolve local address")
 		debug(2, "Error resolving local address: %s", err.Error())
@@ -43,7 +43,7 @@ func start_local_server(root_dir string, metadata *metadata.Library) {
 		log("Starting local file server")
 		err = service.server.Serve(listener)
 		if err != nil {
-			log("An error occured in the local file server")
+			log("An error occurred in the local file server")
 			debug(2, "local file server: %s", err.Error())
 		}
 	}

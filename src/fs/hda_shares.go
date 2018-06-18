@@ -24,36 +24,37 @@ import (
 )
 
 type HdaShare struct {
-	name       string
-	updated_at time.Time
-	path       string
-	tags	string
+	name      string
+	updatedAt time.Time
+	path      string
+	tags      string
+	writable  bool
 }
 
 type HdaShares struct {
 	Shares      []*HdaShare
 	LastChecked time.Time
 	sync.RWMutex
-	root_dir string
+	rootDir     string
 }
 
-func NewHdaShares(root_dir string) (*HdaShares, error) {
+func NewHdaShares(rootDir string) (*HdaShares, error) {
 	result := new(HdaShares)
-	result.root_dir = root_dir
-	err := result.update_shares()
+	result.rootDir = rootDir
+	err := result.updateShares()
 
 	return result, err
 }
 
-func (this *HdaShares) update_shares() error {
-	if this.root_dir == "" {
-		return this.update_sql_shares()
+func (shares *HdaShares) updateShares() error {
+	if shares.rootDir == "" {
+		return shares.updateSqlShares()
 	} else {
-		return this.update_dir_shares()
+		return shares.updateDirShares()
 	}
 }
 
-func (this *HdaShares) update_sql_shares() error {
+func (shares *HdaShares) updateSqlShares() error {
 	dbconn, err := sql.Open("mysql", MYSQL_CREDENTIALS)
 	if err != nil {
 		log(err.Error())
@@ -70,22 +71,22 @@ func (this *HdaShares) update_sql_shares() error {
 	newShares := make([]*HdaShare, 0)
 	for rows.Next() {
 		share := new(HdaShare)
-		rows.Scan(&share.name, &share.updated_at, &share.path, &share.tags)
+		rows.Scan(&share.name, &share.updatedAt, &share.path, &share.tags)
 		debug(5, "share found: %s\n", share.name)
 		newShares = append(newShares, share)
 	}
 
-	this.Lock()
-	this.LastChecked = time.Now()
-	this.Shares = newShares
-	this.Unlock()
+	shares.Lock()
+	shares.LastChecked = time.Now()
+	shares.Shares = newShares
+	shares.Unlock()
 
 	return nil
 }
 
-func (this *HdaShares) update_dir_shares() (nil error) {
+func (shares *HdaShares) updateDirShares() (nil error) {
 
-	dir, err := os.Open(this.root_dir)
+	dir, err := os.Open(shares.rootDir)
 	if err != nil {
 		log(err.Error())
 		return err
@@ -94,7 +95,7 @@ func (this *HdaShares) update_dir_shares() (nil error) {
 
 	stat, _ := dir.Stat()
 	if !stat.IsDir() {
-		return errors.New("root_dir is not a directory")
+		return errors.New("rootDir is not a directory")
 	}
 
 	fis, err := dir.Readdir(0)
@@ -107,50 +108,50 @@ func (this *HdaShares) update_dir_shares() (nil error) {
 		if fis[i].IsDir() && strings.Index(fis[i].Name(), ".") != 0 {
 			share := new(HdaShare)
 			share.name = fis[i].Name()
-			share.updated_at = fis[i].ModTime()
+			share.updatedAt = fis[i].ModTime()
 			share.tags = fis[i].Name()
-			prefix, _ := filepath.Abs(this.root_dir)
+			prefix, _ := filepath.Abs(shares.rootDir)
 			share.path = prefix + "/" + fis[i].Name()
+			share.writable = true
 			newShares = append(newShares, share)
 		}
 	}
 
-	this.Lock()
-	this.LastChecked = time.Now()
-	this.Shares = newShares
-	this.Unlock()
+	shares.Lock()
+	shares.LastChecked = time.Now()
+	shares.Shares = newShares
+	shares.Unlock()
 
 	return
 }
 
-func (this *HdaShares) Get(shareName string) *HdaShare {
-	for i := range this.Shares {
-		if this.Shares[i].name == shareName {
-			return this.Shares[i]
+func (shares *HdaShares) Get(shareName string) *HdaShare {
+	for i := range shares.Shares {
+		if shares.Shares[i].name == shareName {
+			return shares.Shares[i]
 		}
 	}
 	return nil
 }
 
-func (this *HdaShares) to_json() string {
-	if len(this.Shares) < 1 {
+func SharesJson(shares []*HdaShare) string {
+	if len(shares) < 1 {
 		return "[]"
 	}
 
-	ss := []string{}
-	this.RLock()
+	ss := make([]string, 0)
 
-	for i := range this.Shares {
+	for i := range shares {
 		temp := "{"
 		// NB: 'name' and 'mtime' are used because of API spec
-		temp += fmt.Sprintf(`"name": "%s", `, this.Shares[i].name)
-		temp += fmt.Sprintf(`"mtime": "%s", `, this.Shares[i].updated_at.Format(http.TimeFormat))
-		temp += fmt.Sprintf(`"tags": [%s]`, strings.Join(this.Shares[i].tags_list(), ", "))
+		temp += fmt.Sprintf(`"name": "%s", `, shares[i].name)
+		temp += fmt.Sprintf(`"mtime": "%s", `, shares[i].updatedAt.Format(http.TimeFormat))
+		temp += fmt.Sprintf(`"tags": [%s],`, strings.Join(shares[i].tagsList(), ", "))
+		temp += fmt.Sprintf(`"writable": %t`, shares[i].writable)
 		temp += "}"
 		ss = append(ss, temp)
 	}
 
-	this.RUnlock()
 	result := "[\n  "
 	result += strings.Join(ss, ",\n  ")
 	result += "\n]"
@@ -158,15 +159,15 @@ func (this *HdaShares) to_json() string {
 }
 
 // external interface to the path of a share
-func (s *HdaShare) Path() string {
+func (s *HdaShare) GetPath() string {
 	return s.path
 }
 
 // return a list of tags, cleaned up
-func (s *HdaShare) tags_list() []string {
+func (s *HdaShare) tagsList() []string {
 	re := regexp.MustCompile(`(\s*,+\s*)+`)
 	ta := re.Split(s.tags, -1)
-	r := []string{};
+	r := make([]string, 0)
 	for _, tag := range ta {
 		if tag != "" {
 			r = append(r, fmt.Sprintf(`"%s"`, strings.TrimSpace(tag)))
@@ -176,13 +177,13 @@ func (s *HdaShare) tags_list() []string {
 }
 
 // start a metadata pre-fill of the database in the background
-func (this *HdaShares) start_metadata_prefill(library *metadata.Library) {
+func (shares *HdaShares) startMetadataPrefill(library *metadata.Library) {
 	// start it up after some time, to prevent overloads
-	time.Sleep(15*time.Second)
-	for i := range this.Shares {
-		path := this.Shares[i].path
-		tags := strings.ToLower(this.Shares[i].tags)
-		debug(5, `checking share "%s" (%s)  with tags: %s\n`, this.Shares[i].name, path, tags)
+	time.Sleep(15 * time.Second)
+	for i := range shares.Shares {
+		path := shares.Shares[i].path
+		tags := strings.ToLower(shares.Shares[i].tags)
+		debug(5, `checking share "%s" (%s)  with tags: %s\n`, shares.Shares[i].name, path, tags)
 		if path == "" || tags == "" {
 			continue
 		}
@@ -193,4 +194,3 @@ func (this *HdaShares) start_metadata_prefill(library *metadata.Library) {
 		}
 	}
 }
-
