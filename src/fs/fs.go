@@ -38,7 +38,7 @@ import (
 const DISABLE_CERT_CHECKING = false
 const DISABLE_HTTPS = false
 
-const VERSION = "1.83"
+const VERSION = "2.0"
 
 var no_delete = false
 var no_upload = false
