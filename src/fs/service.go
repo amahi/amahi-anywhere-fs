@@ -69,6 +69,7 @@ func NewMercuryFSService(rootDir, localAddr string) (service *MercuryFsService, 
 	// set up API mux
 	apiRouter := mux.NewRouter()
 	apiRouter.HandleFunc("/auth", service.authenticate).Methods("POST")
+	apiRouter.HandleFunc("/logout", service.logout).Methods("POST")
 	apiRouter.HandleFunc("/shares", service.serveShares).Methods("GET")
 	apiRouter.HandleFunc("/files", use(service.serveFile, service.shareReadAccess)).Methods("GET")
 	apiRouter.HandleFunc("/files", use(service.deleteFile, service.shareWriteAccess)).Methods("DELETE")
@@ -272,10 +273,8 @@ func (service *MercuryFsService) serveFile(writer http.ResponseWriter, request *
 }
 
 func (service *MercuryFsService) serveShares(writer http.ResponseWriter, request *http.Request) {
-	authToken := request.Header.Get("Authorization")
-	user := service.Users.find(authToken)
+	user := service.checkAuthHeader(writer, request)
 	if user == nil {
-		http.Error(writer, "Authentication Failed", http.StatusUnauthorized)
 		return
 	}
 	var shares []*HdaShare
