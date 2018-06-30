@@ -88,6 +88,14 @@ func (users *HdaUsers) find(authToken string) *HdaUser {
 	return user
 }
 
+func (users *HdaUsers) remove(authToken string) {
+	if authToken != "" {
+		users.Lock()
+		delete(users.Users, authToken)
+		users.Unlock()
+	}
+}
+
 func (users *HdaUsers) revalidateSession(authToken string, user *HdaUser) (isValid bool, err error) {
 	dbconn, err := sql.Open("mysql", MYSQL_CREDENTIALS)
 	if err != nil {
