@@ -58,18 +58,19 @@ func (service *MercuryFsService) logout(w http.ResponseWriter, r *http.Request) 
 func (service *MercuryFsService) checkAuthHeader(w http.ResponseWriter, r *http.Request) (user *HdaUser) {
 	authToken := r.Header.Get("Authorization")
 	user = service.Users.find(authToken)
-	if user == nil {
+	/*if user == nil {
 		http.Error(w, "Authentication Failed", http.StatusUnauthorized)
-	}
+	}*/
 	return
 }
 
 func (service *MercuryFsService) authMiddleware(pass http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		user := service.checkAuthHeader(w, r)
+		/*user := service.checkAuthHeader(w, r)
 		if user != nil {
 			pass(w, r)
-		}
+		}*/
+		pass(w, r)
 	}
 }
 
@@ -77,7 +78,8 @@ func (service *MercuryFsService) shareReadAccess(pass http.HandlerFunc) http.Han
 	return func(w http.ResponseWriter, r *http.Request) {
 		user := service.checkAuthHeader(w, r)
 		if user == nil {
-			return
+			//return
+			pass(w, r)
 		}
 		shareName := r.URL.Query().Get("s")
 		if access, err := user.HasReadAccess(shareName); !access {
@@ -96,7 +98,8 @@ func (service *MercuryFsService) shareWriteAccess(pass http.HandlerFunc) http.Ha
 	return func(w http.ResponseWriter, r *http.Request) {
 		user := service.checkAuthHeader(w, r)
 		if user == nil {
-			return
+			//return
+			pass(w, r)
 		}
 		shareName := r.URL.Query().Get("s")
 		if access, err := user.HasWriteAccess(shareName); !access {

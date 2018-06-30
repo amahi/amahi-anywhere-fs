@@ -274,12 +274,12 @@ func (service *MercuryFsService) serveFile(writer http.ResponseWriter, request *
 
 func (service *MercuryFsService) serveShares(writer http.ResponseWriter, request *http.Request) {
 	user := service.checkAuthHeader(writer, request)
-	if user == nil {
+	/*if user == nil {
 		return
-	}
+	}*/
 	var shares []*HdaShare
 	var err error
-	if service.Shares.rootDir == "" {
+	if service.Shares.rootDir == "" && user != nil {
 		shares, err = user.AvailableShares()
 		if err != nil {
 			http.Error(writer, "Internal Server Error", http.StatusInternalServerError)
