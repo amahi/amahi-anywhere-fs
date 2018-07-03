@@ -273,10 +273,13 @@ func (service *MercuryFsService) serveFile(writer http.ResponseWriter, request *
 }
 
 func (service *MercuryFsService) serveShares(writer http.ResponseWriter, request *http.Request) {
-	user := service.checkAuthHeader(writer, request)
-	/*if user == nil {
-		return
-	}*/
+	var user *HdaUser
+	if !isAdmin(request) {
+		user = service.checkAuthHeader(writer, request)
+		if user == nil {
+			return
+		}
+	}
 	var shares []*HdaShare
 	var err error
 	if service.Shares.rootDir == "" && user != nil {
