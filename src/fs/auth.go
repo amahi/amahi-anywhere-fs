@@ -23,13 +23,14 @@ func isAdmin(r *http.Request) bool {
 
 func (service *MercuryFsService) authenticate(writer http.ResponseWriter, request *http.Request) {
 	// decode and parse json request body
+	defer request.Body.Close()
 	decoder := json.NewDecoder(request.Body)
 	data := make(map[string]interface{})
 	err := decoder.Decode(&data)
 	if err != nil {
-		panic(err)
+		writer.WriteHeader(http.StatusBadRequest)
+		return
 	}
-	defer request.Body.Close()
 	// read pin from the json body
 	pin, ok := data["pin"].(string)
 	if !ok {
