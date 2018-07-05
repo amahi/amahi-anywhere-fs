@@ -63,7 +63,7 @@ func main() {
 	// Parse the program inputs
 	if !PRODUCTION {
 		flag.IntVar(&dbg, "d", 1, "print debug information, 1 = nothing printed and 5 = print everything")
-		flag.BoolVar(&http2Debug, "h", false, "HTTP2 debug")
+		flag.BoolVar(&http2Debug, "h2", false, "HTTP2 debug")
 		flag.StringVar(&apiKeyFlag, "k", "", "session token used by pfe")
 		flag.StringVar(&rootDir, "r", "", "Use the directories in this directory as shares, instead of the registered HDA shares")
 		flag.StringVar(&localAddr, "l", "", "Use this as the local address of the HDA, or look it up")

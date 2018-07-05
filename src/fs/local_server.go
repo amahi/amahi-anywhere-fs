@@ -41,6 +41,7 @@ func startLocalServer(rootDir string, metadata *metadata.Library) {
 
 	for {
 		log("Starting local file server")
+		debug(2, "Starting local file server at: %s", LocalServerPort)
 		err = service.server.Serve(listener)
 		if err != nil {
 			log("An error occurred in the local file server")
