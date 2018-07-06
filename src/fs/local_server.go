@@ -16,8 +16,8 @@ import (
 
 const LocalServerPort = "4563"
 
-func startLocalServer(rootDir string, metadata *metadata.Library) {
-	service, err := NewMercuryFSService(rootDir, ":"+LocalServerPort)
+func startLocalServer(rootDir string, metadata *metadata.Library, isDemo bool) {
+	service, err := NewMercuryFSService(rootDir, ":"+LocalServerPort, isDemo)
 	if err != nil {
 		log(err.Error())
 		return

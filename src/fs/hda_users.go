@@ -15,15 +15,17 @@ type HdaUser struct {
 	UpdatedAt     time.Time `json:"updated_at"`
 	LastRequestAt time.Time `json:"last_request_at"`
 	LastCheckedAt time.Time `json:"last_checked_at"`
+	IsDemo        bool      `json:"is_demo"`
 }
 
 type HdaUsers struct {
-	Users map[string]*HdaUser
+	IsDemo bool
+	Users  map[string]*HdaUser
 	sync.RWMutex
 }
 
-func NewHdaUsers() *HdaUsers {
-	return &HdaUsers{Users: make(map[string]*HdaUser)}
+func NewHdaUsers(isDemo bool) *HdaUsers {
+	return &HdaUsers{IsDemo: isDemo, Users: make(map[string]*HdaUser)}
 }
 
 func tokenGenerator() string {
@@ -33,17 +35,25 @@ func tokenGenerator() string {
 }
 
 func (users *HdaUsers) queryUser(pin string) (*string, error) {
-	dbconn, err := sql.Open("mysql", MYSQL_CREDENTIALS)
-	if err != nil {
-		log(err.Error())
-		return nil, err
-	}
-	defer dbconn.Close()
-	q := "SELECT id, login, name, updated_at FROM users WHERE pin=?"
 	user := new(HdaUser)
-	err = dbconn.QueryRow(q, pin).Scan(&user.id, &user.Login, &user.Name, &user.UpdatedAt)
-	if err != nil {
-		return nil, err
+	if users.IsDemo {
+		user.IsDemo = true
+		user.id = 0
+		user.LastCheckedAt = time.Now()
+		user.UpdatedAt = time.Now()
+	} else {
+		dbconn, err := sql.Open("mysql", MYSQL_CREDENTIALS)
+		if err != nil {
+			log(err.Error())
+			return nil, err
+		}
+		defer dbconn.Close()
+		q := "SELECT id, login, name, updated_at FROM users WHERE pin=?"
+
+		err = dbconn.QueryRow(q, pin).Scan(&user.id, &user.Login, &user.Name, &user.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
 	}
 	authToken := users.updateUserIfExists(user)
 	if authToken != "" {
@@ -75,7 +85,7 @@ func (users *HdaUsers) find(authToken string) *HdaUser {
 	users.Lock()
 	defer users.Unlock()
 	user := users.Users[authToken]
-	if user != nil {
+	if !(user == nil || user.IsDemo) {
 		if time.Now().Sub(user.LastCheckedAt) > time.Minute*5 {
 			isValid, err := users.revalidateSession(authToken, user)
 			if isValid || (!isValid && err != nil) {
@@ -146,6 +156,9 @@ func (user *HdaUser) AvailableShares() ([]*HdaShare, error) {
 }
 
 func (user *HdaUser) HasReadAccess(shareName string) (access bool, err error) {
+	if user.IsDemo {
+		return true, nil
+	}
 	dbconn, err := sql.Open("mysql", MYSQL_CREDENTIALS)
 	if err != nil {
 		log(err.Error())
@@ -161,6 +174,9 @@ func (user *HdaUser) HasReadAccess(shareName string) (access bool, err error) {
 }
 
 func (user *HdaUser) HasWriteAccess(shareName string) (access bool, err error) {
+	if user.IsDemo {
+		return true, nil
+	}
 	dbconn, err := sql.Open("mysql", MYSQL_CREDENTIALS)
 	if err != nil {
 		log(err.Error())

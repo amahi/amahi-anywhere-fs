@@ -55,10 +55,10 @@ type MercuryFsService struct {
 // NewMercuryFsService creates a new MercuryFsService, sets the FileDirectoryRoot
 // and CurrentDirectory to rootDirectory and returns the pointer to the
 // newly created MercuryFsService
-func NewMercuryFSService(rootDir, localAddr string) (service *MercuryFsService, err error) {
+func NewMercuryFSService(rootDir, localAddr string, isDemo bool) (service *MercuryFsService, err error) {
 	service = new(MercuryFsService)
 
-	service.Users = NewHdaUsers()
+	service.Users = NewHdaUsers(isDemo)
 	service.Shares, err = NewHdaShares(rootDir)
 	if err != nil {
 		debug(3, "Error making HdaShares: %s", err.Error())
@@ -282,7 +282,7 @@ func (service *MercuryFsService) serveShares(writer http.ResponseWriter, request
 	}
 	var shares []*HdaShare
 	var err error
-	if service.Shares.rootDir == "" && user != nil {
+	if service.Shares.rootDir == "" && !(user == nil || user.IsDemo) {
 		shares, err = user.AvailableShares()
 		if err != nil {
 			http.Error(writer, "Internal Server Error", http.StatusInternalServerError)

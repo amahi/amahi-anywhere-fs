@@ -59,6 +59,7 @@ func main() {
 	var localAddr = ""
 	var relayHost = PFE_HOST
 	var relayPort = PFE_PORT
+	var isDemo = false
 
 	// Parse the program inputs
 	if !PRODUCTION {
@@ -71,6 +72,7 @@ func main() {
 		flag.StringVar(&relayPort, "pfe-port", PFE_PORT, "port the pfe is using")
 		flag.BoolVar(&noDelete, "nd", false, "ignore delete requests silently")
 		flag.BoolVar(&noUpload, "nu", false, "ignore upload requests silently")
+		flag.BoolVar(&isDemo, "id", false, "run in demo mode")
 	}
 	flag.Parse()
 
@@ -108,7 +110,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	service, err := NewMercuryFSService(rootDir, localAddr)
+	service, err := NewMercuryFSService(rootDir, localAddr, isDemo)
 	if err != nil {
 		fmt.Printf("Error making service (%s, %s): %s\n", rootDir, localAddr, err.Error())
 		os.Remove(PID_FILE)
@@ -128,7 +130,7 @@ func main() {
 	}
 
 	runtime.GOMAXPROCS(1000)
-	go startLocalServer(rootDir, metadata)
+	go startLocalServer(rootDir, metadata, isDemo)
 
 	// Continually connect to the proxy and listen for requests
 	// Reconnect if there is an error
