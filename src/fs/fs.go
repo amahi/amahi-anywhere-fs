@@ -72,9 +72,12 @@ func main() {
 		flag.StringVar(&relayPort, "pfe-port", PFE_PORT, "port the pfe is using")
 		flag.BoolVar(&noDelete, "nd", false, "ignore delete requests silently")
 		flag.BoolVar(&noUpload, "nu", false, "ignore upload requests silently")
-		flag.BoolVar(&isDemo, "id", false, "run in demo mode")
 	}
 	flag.Parse()
+
+	if rootDir != "" {
+		isDemo = true
+	}
 
 	apiKey := ""
 	if PRODUCTION || (!PRODUCTION && (apiKeyFlag == "")) {
