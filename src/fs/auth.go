@@ -15,10 +15,17 @@ func use(h http.HandlerFunc, middleware ...func(http.HandlerFunc) http.HandlerFu
 	return h
 }
 
+func parseAuthToken(r *http.Request) (authToken string) {
+	authToken = r.Header.Get("Authorization")
+	if authToken == "" {
+		authToken = r.URL.Query().Get("auth")
+	}
+	return
+}
+
 func isAdmin(r *http.Request) bool {
 	// if Authorization header is not present, this is admin user
-	authToken := r.Header.Get("Authorization")
-	return authToken == ""
+	return parseAuthToken(r) == ""
 }
 
 func (service *MercuryFsService) authenticate(writer http.ResponseWriter, request *http.Request) {
@@ -60,13 +67,13 @@ func (service *MercuryFsService) authenticate(writer http.ResponseWriter, reques
 }
 
 func (service *MercuryFsService) logout(w http.ResponseWriter, r *http.Request) {
-	authToken := r.Header.Get("Authorization")
+	authToken := parseAuthToken(r)
 	service.Users.remove(authToken)
 	w.WriteHeader(http.StatusOK)
 }
 
 func (service *MercuryFsService) checkAuthHeader(w http.ResponseWriter, r *http.Request) (user *HdaUser) {
-	authToken := r.Header.Get("Authorization")
+	authToken := parseAuthToken(r)
 	user = service.Users.find(authToken)
 	// if user is nil, respond with 401 Unauthorized
 	if user == nil {
