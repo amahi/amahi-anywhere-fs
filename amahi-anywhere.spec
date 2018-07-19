@@ -1,5 +1,5 @@
 Name:		amahi-anywhere
-Version:	1.83
+Version:	2.2
 Release:	1
 Summary:	Amahi Anywhere server
 
