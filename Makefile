@@ -6,6 +6,7 @@ RPMBUILDDIR=$(HOME)/rpmbuild
 # compile for production release
 PLATFORM=$(shell head -1 /etc/system-release | cut -f1 -d" " | tr "[:upper:]" "[:lower:]")
 
+export GOLANG=go
 export GOPATH=$(shell pwd)
 
 all: build-production
@@ -13,7 +14,7 @@ all: build-production
 PLATFORM=$(shell head -1 /etc/system-release | cut -f1 -d" " | tr "[:upper:]" "[:lower:]")
 
 build-production:
-	go get -tags "$(PLATFORM) linux" fs
+	$(GOLANG) get -tags "$(PLATFORM) linux" fs
 	@rm -f bin/amahi-anywhere
 	@ln bin/fs bin/amahi-anywhere
 
@@ -21,22 +22,22 @@ build-development:
 	@echo "********************************************************"
 	@echo "************** BUILDING FOR DEVELOPMENT/DEBUG RELEASE"
 	@echo "********************************************************"
-	go get -tags "development $(PLATFORM) linux" fs
+	$(GOLANG) get -tags "development $(PLATFORM) linux" fs
 	@rm -f bin/amahi-anywhere
 	@ln bin/fs bin/amahi-anywhere
 
 mac:
-	go get -tags "development darwin" fs
+	$(GOLANG) get -tags "development darwin" fs
 	@rm -f bin/amahi-anywhere
 	@ln bin/fs bin/amahi-anywhere
 
 race:
-	go build -race fs
+	$(GOLANG) build -race fs
 	mkdir -p bin/
 	mv -f fs bin/
 
 clean:
-	go clean -i -x fs
+	$(GOLANG) clean -i -x fs
 	rm -rf pkg bin
 
 dist: update-header
