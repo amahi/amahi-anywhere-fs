@@ -11,18 +11,11 @@ package main
 
 import (
 	"net"
-	"github.com/amahi/go-metadata"
 )
 
 const LocalServerPort = "4563"
 
-func startLocalServer(rootDir string, metadata *metadata.Library, isDemo bool) {
-	service, err := NewMercuryFSService(rootDir, ":"+LocalServerPort, isDemo)
-	if err != nil {
-		log(err.Error())
-		return
-	}
-	service.metadata = metadata
+func (service *MercuryFsService) startLocalServer() {
 
 	addr, err := net.ResolveTCPAddr("tcp", ":"+LocalServerPort)
 	if err != nil {
