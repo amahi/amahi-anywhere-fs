@@ -133,7 +133,7 @@ func main() {
 	}
 
 	runtime.GOMAXPROCS(1000)
-	go startLocalServer(rootDir, metadata, isDemo)
+	go service.startLocalServer()
 
 	// Continually connect to the proxy and listen for requests
 	// Reconnect if there is an error
