@@ -19,12 +19,12 @@ import (
 	"github.com/gorilla/mux"
 	"golang.org/x/net/http2"
 	"io"
-	"math/rand"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"path"
 	"regexp"
 	"runtime"
 	"strconv"
@@ -629,11 +629,9 @@ func (service *MercuryFsService) uploadFile(writer http.ResponseWriter, request 
 
 		// FIXME -- check the filename so it does not start with dots, or slashes!
 		fullPath, _ := service.fullPathToFile(share, path+"/"+handler.Filename)
-		_, err = os.Open(fullPath)
-		//if filename exists, rename the fullPath
-		if !os.IsNotExist(err) {
-			//randStr(6) will generates a string of length 6
-			fullPath, _ = service.fullPathToFile(share, path+"/"+randStr(6)+"_"+handler.Filename)
+
+		if checkFileExists(fullPath) {
+			fullPath = renameFile(fullPath)
 		}
 
 		f, err := os.OpenFile(fullPath, os.O_WRONLY|os.O_CREATE, 0644)
@@ -658,13 +656,28 @@ func (service *MercuryFsService) uploadFile(writer http.ResponseWriter, request 
 	return
 }
 
-//randStr returns a random string
-func randStr(n int) string {
-	itemRunes := []rune("!@#$%^&1234567890abcdefghjklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-	s := make([]rune, n)
+// rename the given file path
+func renameFile(p string) string {
+	//get the file suffix
+	ext := path.Ext(p)
+	//get the filename without suffix
+	baseName := strings.Replace(p, ext, "", 1)
 
-	for i := range s {
-		s[i] = itemRunes[rand.Intn(len(itemRunes))]
+	timeStamp := time.Now().Format("20060102-1504")
+
+	return baseName + "-" + timeStamp + ext
+}
+
+// checkFileExists checks if the given file is exists
+func checkFileExists(file string) bool {
+	_, err := os.Stat(file)
+
+	var exists = true
+	//Check if the file exists
+	if err != nil {
+		if os.IsNotExist(err) {
+			exists = false
+		}
 	}
-	return string(s)
+	return exists
 }
