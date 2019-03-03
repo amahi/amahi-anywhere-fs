@@ -17,7 +17,9 @@ import (
 	"fmt"
 	"github.com/amahi/go-metadata"
 	"github.com/gorilla/mux"
+	"golang.org/x/net/http2"
 	"io"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -27,7 +29,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"golang.org/x/net/http2"
 	"time"
 )
 
@@ -628,6 +629,12 @@ func (service *MercuryFsService) uploadFile(writer http.ResponseWriter, request 
 
 		// FIXME -- check the filename so it does not start with dots, or slashes!
 		fullPath, _ := service.fullPathToFile(share, path+"/"+handler.Filename)
+		_, err = os.Open(fullPath)
+		//if filename exists, rename the fullPath
+		if !os.IsNotExist(err) {
+			//randStr(6) will generates a string of length 6
+			fullPath, _ = service.fullPathToFile(share, path+"/"+randStr(6)+"_"+handler.Filename)
+		}
 
 		f, err := os.OpenFile(fullPath, os.O_WRONLY|os.O_CREATE, 0644)
 		if err != nil {
@@ -649,4 +656,15 @@ func (service *MercuryFsService) uploadFile(writer http.ResponseWriter, request 
 	writer.WriteHeader(http.StatusOK)
 
 	return
+}
+
+//randStr returns a random string
+func randStr(n int) string {
+	itemRunes := []rune("!@#$%^&1234567890abcdefghjklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	s := make([]rune, n)
+
+	for i := range s {
+		s[i] = itemRunes[rand.Intn(len(itemRunes))]
+	}
+	return string(s)
 }
