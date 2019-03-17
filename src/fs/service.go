@@ -642,7 +642,7 @@ func (service *MercuryFsService) uploadFile(writer http.ResponseWriter, request 
 
 		md5 := CalMD5(file)
 
-		file, _, _ = request.FormFile("file")
+		file.Seek(0, 0)
 		//0 => not exists, 1 => exists, 2 => same md5, do nothing
 		status := checkFileExists(fullPath, md5)
 
