@@ -35,7 +35,7 @@ type HdaShares struct {
 	Shares      []*HdaShare
 	LastChecked time.Time
 	sync.RWMutex
-	rootDir     string
+	rootDir string
 }
 
 func NewHdaShares(rootDir string) (*HdaShares, error) {
@@ -182,6 +182,7 @@ func (shares *HdaShares) startMetadataPrefill(library *metadata.Library) {
 	time.Sleep(15 * time.Second)
 	for i := range shares.Shares {
 		path := shares.Shares[i].path
+		fmt.Println("path: ", path)
 		tags := strings.ToLower(shares.Shares[i].tags)
 		debug(5, `checking share "%s" (%s)  with tags: %s\n`, shares.Shares[i].name, path, tags)
 		if path == "" || tags == "" {
@@ -192,5 +193,17 @@ func (shares *HdaShares) startMetadataPrefill(library *metadata.Library) {
 		} else if strings.Contains(tags, "tv") {
 			library.Prefill(path, "tv", 0, true)
 		}
+	}
+}
+
+func (shares *HdaShares) createThumbnailCache() {
+	time.Sleep(15 * time.Second)
+	for i := range shares.Shares {
+		// get path of the shares
+		path := shares.Shares[i].path
+		if path == "" {
+			continue
+		}
+		fillCache(path)
 	}
 }

@@ -18,6 +18,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/amahi/go-metadata"
+	"golang.org/x/net/http2"
 	"hda_api_key"
 	"io/ioutil"
 	"math/rand"
@@ -30,7 +31,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"golang.org/x/net/http2"
 )
 
 // DANGER DANGER DANGER
@@ -123,6 +123,7 @@ func main() {
 	service.metadata = metadata
 
 	go service.Shares.startMetadataPrefill(metadata)
+	go service.Shares.createThumbnailCache()
 
 	log("Amahi Anywhere service v%s", VERSION)
 
@@ -140,13 +141,13 @@ func main() {
 	for {
 		conn, err := contactPfe(relayHost, relayPort, apiKey, service)
 		if err != nil {
-			log("Error contacting the proxy.")
-			debug(2, "Error contacting the proxy: %s", err)
+			//log("Error contacting the proxy.")
+			//debug(2, "Error contacting the proxy: %s", err)
 		} else {
 			err = service.StartServing(conn)
 			if err != nil {
-				log("Error serving requests")
-				debug(2, "Error in StartServing: %s", err)
+				//log("Error serving requests")
+				//debug(2, "Error in StartServing: %s", err)
 			}
 		}
 		// reconnect fairly quickly, with some randomness
@@ -160,7 +161,7 @@ func main() {
 func contactPfe(relayHost, relayPort, apiKey string, service *MercuryFsService) (net.Conn, error) {
 
 	relayLocation := relayHost + ":" + relayPort
-	log("Contacting Relay at: " + relayLocation)
+	//log("Contacting Relay at: " + relayLocation)
 	addr, err := net.ResolveTCPAddr("tcp", relayLocation)
 	if err != nil {
 		debug(2, "Error with ResolveTCPAddr: %s", err)
