@@ -206,6 +206,14 @@ func (service *MercuryFsService) serveFile(writer http.ResponseWriter, request *
 	q := request.URL
 	path := q.Query().Get("p")
 	share := q.Query().Get("s")
+	c := q.Query().Get("c")
+	var cache bool		// signifies if the cache to be sent or not.
+	if c == "true"{
+		cache = true
+	} else {
+		cache = false
+	}
+	log("cache: ", cache)
 	ua := request.Header.Get("User-Agent")
 	query := pathForLog(request.URL)
 
@@ -236,7 +244,7 @@ func (service *MercuryFsService) serveFile(writer http.ResponseWriter, request *
 
 	// If the file is a directory, return the all the files within the directory...
 	if fi.IsDir() || isSymlinkDir(fi, fullPath) {
-		jsonDir, err := dirToJSON(osFile, fullPath)
+		jsonDir, err := dirToJSON(osFile, fullPath, cache)
 		if err != nil {
 			debug(2, "Error converting dir to JSON: %s", err.Error())
 			log("\"GET %s\" 404 0 \"%s\"", query, ua)

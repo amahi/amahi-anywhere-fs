@@ -59,7 +59,6 @@ func getWalkFunction() func(path string, info os.FileInfo, err error) error {
 			if os.IsNotExist(err) {
 				os.MkdirAll(thumbnailDirPath, os.ModePerm)
 			}
-
 			imageInfo, _ := os.Stat(path)
 			thumbnailPath := filepath.Join(thumbnailDirPath, filename)
 			thumbnailInfo, err := os.Stat(thumbnailPath)
