@@ -11,27 +11,25 @@ package main
 
 import (
 	"bytes"
-	"crypto/md5"
 	"crypto/tls"
 	"database/sql"
-	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/amahi/go-metadata"
-	"github.com/gorilla/mux"
-	"golang.org/x/net/http2"
 	"io"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
-	"path"
 	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/amahi/go-metadata"
+	"github.com/gorilla/mux"
+	"golang.org/x/net/http2"
 )
 
 // MercuryFsService defines the file server and directory server API
@@ -629,29 +627,26 @@ func (service *MercuryFsService) uploadFile(writer http.ResponseWriter, request 
 		}
 		defer file.Close()
 
+		fullPath, _ := service.fullPathToFile(share, path+"/"+handler.Filename)
 		//check if the file name is valid
-		if !validFilename(handler.Filename) {
-			debug(2, "Error prefix of uploaded file")
+		if !validFilename(fullPath) {
+			debug(2, "invalid filename")
 			writer.WriteHeader(http.StatusUnsupportedMediaType)
 			service.debugInfo.requestServed(int64(0))
 			log("\"POST %s\" 415 0 \"%s\"", query, ua)
 			return
 		}
 
-		fullPath, _ := service.fullPathToFile(share, path+"/"+handler.Filename)
-
-		md5 := CalMD5(file)
-
+		//check file status
+		status := checkFileExists(fullPath, file)
 		file.Seek(0, 0)
-		//0 => not exists, 1 => exists, 2 => same md5, do nothing
-		status := checkFileExists(fullPath, md5)
 
 		var f *os.File
-		if status == 0 {
+		if status == FILE_NOT_EXISTS {
 			//file not exists, create and write it
 			f, err = os.OpenFile(fullPath, os.O_WRONLY|os.O_CREATE, 0644)
 
-		} else if status == 1 {
+		} else if status == FILE_EXISTS {
 			//file exists but md5 is different, rename it
 			fullPath = renameFile(fullPath)
 			f, err = os.OpenFile(fullPath, os.O_WRONLY|os.O_CREATE, 0644)
@@ -662,7 +657,7 @@ func (service *MercuryFsService) uploadFile(writer http.ResponseWriter, request 
 			service.debugInfo.requestServed(int64(0))
 			log("\"POST %s\" 503 0 \"%s\"", query, ua)
 			return
-		} // status == 2, ignore it
+		} // status == FILE_SAME_MD5, ignore it
 
 		defer f.Close()
 		io.Copy(f, file)
@@ -676,61 +671,4 @@ func (service *MercuryFsService) uploadFile(writer http.ResponseWriter, request 
 	writer.WriteHeader(http.StatusOK)
 
 	return
-}
-
-// rename the given file path
-func renameFile(p string) string {
-	//get the file suffix
-	ext := path.Ext(p)
-	//get the filename without suffix
-	baseName := strings.Replace(p, ext, "", 1)
-
-	timeStamp := time.Now().Format("20060102-1504")
-
-	return baseName + "-" + timeStamp + ext
-}
-
-/*
-status:
-0 => file not exists,
-1 => file exists,
-2 => file exists and have the same md5
-*/
-func checkFileExists(filename, md5 string) int {
-	_, err := os.Stat(filename)
-	//file not exists
-	if err != nil {
-		return 0
-	}
-	file, ferr := os.Open(filename)
-	if ferr != nil {
-		return 0
-	}
-
-	//file exists, compare the md5
-	if CalMD5(file) == md5 {
-		return 2
-	}
-
-	//file exists
-	return 1
-}
-
-//check if the file name is valid
-func validFilename(f string) bool {
-	if strings.HasPrefix(f, ".") ||
-		strings.HasPrefix(f, "/") ||
-		//It could be slash after the system escaped it automatically.
-		strings.HasPrefix(f, "⁄") ||
-		strings.HasPrefix(f, " ") {
-		return false
-	}
-	return true
-}
-
-//calculate the md5
-func CalMD5(input io.Reader) string {
-	h := md5.New()
-	io.Copy(h, input)
-	return hex.EncodeToString(h.Sum(nil))
 }
