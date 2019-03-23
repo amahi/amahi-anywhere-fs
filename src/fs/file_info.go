@@ -12,7 +12,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -26,14 +25,14 @@ type fileInfo struct {
 	mimeType string
 	mtime    time.Time
 	size     int64
-	cache    fileCache
+	cache    fileCacheInfo
 }
 
-type fileCache struct {
-	status bool
-	mtime  time.Time
-	size   int64
-	data   []byte
+type fileCacheInfo struct {
+	status   bool
+	mtime    time.Time
+	size     int64
+	endpoint string
 }
 
 type fileSorter struct {
@@ -55,13 +54,14 @@ func (fi *fileSorter) Less(i, j int) bool {
 	return strings.ToLower(fi.files[i].name) < strings.ToLower(fi.files[j].name)
 }
 
-func (f *fileCache) invalidateCache() {
+func (f *fileCacheInfo) invalidateCache() {
 	f.status = false
 	f.size = 0
 	f.mtime = time.Time{}
+	f.endpoint = ""
 }
 
-func (f *fileCache) fillCache(filePath string) {
+func (f *fileCacheInfo) fillCache(filePath, share, path string) {
 	parentDir := filepath.Dir(filePath)
 	filename := filepath.Base(filePath)
 
@@ -74,24 +74,22 @@ func (f *fileCache) fillCache(filePath string) {
 		f.status = true
 		f.size = thumbnailInfo.Size()
 		f.mtime = thumbnailInfo.ModTime()
-		f.data, err = ioutil.ReadFile(thumbnailPath)
+		if len(path) == 0 {
+			path = "/"
+		}
+		path := filepath.Join(path, filename)
+		log("inside fill cache. Path is", path)
+		f.endpoint = fmt.Sprintf(`/cache?s=%s&p=%s`, share, path)
 		if err != nil {
 			f.invalidateCache()
 		}
 	}
 }
 
-/*
-	returns a json of the fileCache object.
-	status is a bool
-	mtime is last modified time
-	size is the size of the cache data
-	data is hex encoded data
-*/
-func (f *fileCache) toJson() string {
+func (f *fileCacheInfo) toJson() string {
 	if f.status {
-		return fmt.Sprintf(`{"status": %t, "mtime": "%s", "size": %d}, "data": "%x"`,
-			f.status, f.mtime.Format(http.TimeFormat), f.size, f.data)
+		return fmt.Sprintf(`{"status": %t, "mtime": "%s", "size": %d, "endpoint": "%s"}`,
+			f.status, f.mtime.Format(http.TimeFormat), f.size, f.endpoint)
 	} else {
 		return fmt.Sprintf(`{"status":%t}`, f.status)
 	}
@@ -103,7 +101,7 @@ func (f *fileInfo) toJson() string {
 		string(name), f.mimeType, f.mtime.Format(http.TimeFormat), f.size, f.cache.toJson())
 }
 
-func directoryFileInfos(fis []os.FileInfo, fullPath string, cacheBool bool) []fileInfo {
+func directoryFileInfos(fis []os.FileInfo, fullPath, share, path string) []fileInfo {
 	fileInfos := make([]fileInfo, 0)
 	for i := range fis {
 		if fis[i].Name()[0] == '.' {
@@ -113,9 +111,7 @@ func directoryFileInfos(fis []os.FileInfo, fullPath string, cacheBool bool) []fi
 			name:  fis[i].Name(),
 			mtime: fis[i].ModTime(),
 		}
-		if cacheBool {
-			fileInfo.cache.fillCache(filepath.Join(fullPath, fis[i].Name()))
-		}
+		fileInfo.cache.fillCache(filepath.Join(fullPath, fis[i].Name()), share, path)
 		if fis[i].IsDir() || isSymlinkDir(fis[i], fullPath) {
 			fileInfo.mimeType = "text/directory"
 			fileInfo.size = 0
@@ -133,13 +129,13 @@ func directoryFileInfos(fis []os.FileInfo, fullPath string, cacheBool bool) []fi
 	return fileInfos
 }
 
-func dirToJSON(osFile *os.File, fullPath string, cacheBool bool) (string, error) {
+func dirToJSON(osFile *os.File, fullPath, share, path string) (string, error) {
 	fis, err := osFile.Readdir(0)
 	if err != nil {
 		return "", err
 	}
 
-	fileInfos := directoryFileInfos(fis, fullPath, cacheBool)
+	fileInfos := directoryFileInfos(fis, fullPath, share, path)
 
 	if len(fileInfos) == 0 {
 		return "[]", nil

@@ -17,17 +17,18 @@ import (
 	"fmt"
 	"github.com/amahi/go-metadata"
 	"github.com/gorilla/mux"
+	"golang.org/x/net/http2"
 	"io"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
-	"golang.org/x/net/http2"
 	"time"
 )
 
@@ -71,9 +72,10 @@ func NewMercuryFSService(rootDir, localAddr string, isDemo bool) (service *Mercu
 	apiRouter.HandleFunc("/auth", service.authenticate).Methods("POST")
 	apiRouter.HandleFunc("/logout", service.logout).Methods("POST")
 	apiRouter.HandleFunc("/shares", service.serveShares).Methods("GET")
-	apiRouter.HandleFunc("/files", use(service.serveFile, service.shareReadAccess)).Methods("GET")
-	apiRouter.HandleFunc("/files", use(service.deleteFile, service.shareWriteAccess)).Methods("DELETE")
-	apiRouter.HandleFunc("/files", use(service.uploadFile, service.shareWriteAccess)).Methods("POST")
+	apiRouter.HandleFunc("/files", use(service.serveFile, service.shareReadAccess, service.restrictCache)).Methods("GET")
+	apiRouter.HandleFunc("/files", use(service.deleteFile, service.shareWriteAccess, service.restrictCache)).Methods("DELETE")
+	apiRouter.HandleFunc("/files", use(service.uploadFile, service.shareWriteAccess, service.restrictCache)).Methods("POST")
+	apiRouter.HandleFunc("/cache", use(service.serveCache, service.shareReadAccess)).Methods("GET")
 	apiRouter.HandleFunc("/apps", service.appsList).Methods("GET")
 	apiRouter.HandleFunc("/md", service.getMetadata).Methods("GET")
 	apiRouter.HandleFunc("/hda_debug", service.hdaDebug).Methods("GET")
@@ -202,18 +204,80 @@ func (service *MercuryFsService) StartServing(conn net.Conn) error {
 	return errors.New("connection is no longer readable")
 }
 
+func (service *MercuryFsService) serveCache(writer http.ResponseWriter, request *http.Request) {
+	q := request.URL
+	path := q.Query().Get("p")
+	share := q.Query().Get("s")
+	ua := request.Header.Get("User-Agent")
+	query := pathForLog(request.URL)
+
+	debug(2, "serve_file GET request")
+
+	service.printRequest(request)
+
+	fullPath, err := service.fullPathToFile(share, path)
+
+	parentDir := filepath.Dir(fullPath)
+	filename := filepath.Base(fullPath)
+	thumbnailDirPath := filepath.Join(parentDir, ".fscache/thumbnails")
+	thumbnailPath := filepath.Join(thumbnailDirPath, filename)
+
+	if err != nil {
+		debug(2, "File not found: %s", err)
+		http.NotFound(writer, request)
+		service.debugInfo.requestServed(int64(0))
+		log("\"GET %s\" 404 0 \"%s\"", query, ua)
+		return
+	}
+	osFile, err := os.Open(thumbnailPath)
+	if err != nil {
+		debug(2, "Error opening cache file: %s", err.Error())
+		http.NotFound(writer, request)
+		service.debugInfo.requestServed(int64(0))
+		log("\"GET %s\" 404 0 \"%s\"", query, ua)
+		return
+	}
+	defer osFile.Close()
+
+	// This shouldn't return an error since we just opened the file
+	fi, _ := osFile.Stat()
+
+	// If the file is a directory, return 404 as cache file doesn't exist for directory
+	if fi.IsDir() || isSymlinkDir(fi, fullPath) {
+		debug(2, "Cache for directory not available")
+		http.NotFound(writer, request)
+		service.debugInfo.requestServed(int64(0))
+		log("\"GET %s\" 404 0 \"%s\"", query, ua)
+		return
+	}
+
+	// we use for etag the sha1sum of the full path followed the mtime
+	mtime := fi.ModTime().UTC().Format(http.TimeFormat)
+	etag := `"` + sha1string(path+mtime) + `"`
+	inm := request.Header.Get("If-None-Match")
+	if inm == etag {
+		debug(4, "If-None-Match match found for %s", etag)
+		writer.WriteHeader(http.StatusNotModified)
+		log("\"GET %s\" %d \"%s\"", query, 304, ua)
+	} else {
+		writer.Header().Set("Last-Modified", mtime)
+		writer.Header().Set("ETag", etag)
+		writer.Header().Set("Cache-Control", "max-age=0, private, must-revalidate")
+		debug(4, "Etag sent: %s", etag)
+
+		http.ServeContent(writer, request, thumbnailPath, fi.ModTime(), osFile)
+		log("\"GET %s\" %d %d \"%s\"", query, 200, fi.Size(), ua)
+		service.debugInfo.requestServed(fi.Size())
+	}
+
+	return
+
+}
+
 func (service *MercuryFsService) serveFile(writer http.ResponseWriter, request *http.Request) {
 	q := request.URL
 	path := q.Query().Get("p")
 	share := q.Query().Get("s")
-	c := q.Query().Get("c")
-	var cache bool		// signifies if the cache to be sent or not.
-	if c == "true"{
-		cache = true
-	} else {
-		cache = false
-	}
-	log("cache: ", cache)
 	ua := request.Header.Get("User-Agent")
 	query := pathForLog(request.URL)
 
@@ -244,7 +308,7 @@ func (service *MercuryFsService) serveFile(writer http.ResponseWriter, request *
 
 	// If the file is a directory, return the all the files within the directory...
 	if fi.IsDir() || isSymlinkDir(fi, fullPath) {
-		jsonDir, err := dirToJSON(osFile, fullPath, cache)
+		jsonDir, err := dirToJSON(osFile, fullPath, share, path)
 		if err != nil {
 			debug(2, "Error converting dir to JSON: %s", err.Error())
 			log("\"GET %s\" 404 0 \"%s\"", query, ua)

@@ -9,11 +9,11 @@ import (
 
 func thumbnailer(imagePath string, savePath string) error {
 	img, err := imaging.Open(imagePath)
+	log("path: ", imagePath)
 	if err != nil {
-		log("some error occurred")
+		log("some error occurred for file: ", imagePath)
 		return err
 	}
-	log("path: ", imagePath)
 	imgX := img.Bounds().Max.X
 	imgY := img.Bounds().Max.Y
 
@@ -22,7 +22,7 @@ func thumbnailer(imagePath string, savePath string) error {
 
 	thumb := imaging.Thumbnail(img, thumbX, thumbY, imaging.NearestNeighbor)
 
-	os.Mkdir(filepath.Dir(savePath), os.ModePerm)
+	os.MkdirAll(filepath.Dir(savePath), os.ModePerm)
 	err = imaging.Save(thumb, savePath)
 	if err != nil {
 		return err
@@ -42,7 +42,6 @@ func walkFunc(path string, info os.FileInfo, err error) error {
 	}
 	fi, _ := os.Stat(path)
 	if ! fi.IsDir() {
-		// if the path is to a file instead of directory
 		parentDir := filepath.Dir(path)
 		filename := filepath.Base(path)
 

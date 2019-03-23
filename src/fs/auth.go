@@ -1,11 +1,12 @@
 package main
 
 import (
-	"net/http"
-	"encoding/json"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"strconv"
+	"strings"
 )
 
 func use(h http.HandlerFunc, middleware ...func(http.HandlerFunc) http.HandlerFunc) http.HandlerFunc {
@@ -122,6 +123,21 @@ func (service *MercuryFsService) shareReadAccess(pass http.HandlerFunc) http.Han
 			}
 			pass(w, r)
 		}
+	}
+}
+
+func (service *MercuryFsService) restrictCache(pass http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		share := r.URL.Query().Get("s")
+		path := r.URL.Query().Get("p")
+		fullPath, _ := service.fullPathToFile(share, path)
+
+		if strings.Contains(fullPath, ".fscache") {
+			http.Error(w, "Cannot access cache via /files", http.StatusForbidden)
+			return
+		}
+
+		pass(w, r)
 	}
 }
 
