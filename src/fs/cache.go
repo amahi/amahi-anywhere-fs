@@ -19,7 +19,7 @@ func thumbnailer(imagePath string, savePath string) error {
 	thumbX := (imgX * 100 * 2) / (imgX + imgY)
 	thumbY := (imgY * 100 * 2) / (imgX + imgY)
 
-	thumb := imaging.Thumbnail(img, thumbX, thumbY, imaging.Lanczos)
+	thumb := imaging.Thumbnail(img, thumbX, thumbY, imaging.Box)
 
 	os.MkdirAll(filepath.Dir(savePath), os.ModePerm)
 	err = imaging.Save(thumb, savePath)
