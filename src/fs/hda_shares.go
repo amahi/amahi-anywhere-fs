@@ -197,17 +197,33 @@ func (shares *HdaShares) startMetadataPrefill(library *metadata.Library) {
 }
 
 func (shares *HdaShares) createThumbnailCache() {
-	time.Sleep(5 * time.Second)
-	for ; ; {
-		log("Starting caching")
-		for i := range shares.Shares {
-			// get path of the shares
-			path := shares.Shares[i].path
-			if path == "" {
-				continue
+	time.Sleep(2 * time.Second)
+	go func() {
+		for {
+			select {
+			// watch for events
+			case event := <-watcher.Events:
+				op := event.Op.String()
+				log("EVENT: ", op)
+				switch {
+				case op == "CREATE" || op == "WRITE":
+					fillCache(event.Name)
+				}
+
+				// watch for errors
+			case err := <-watcher.Errors:
+				fmt.Println("ERROR", err)
 			}
-			fillCache(path)
 		}
-		time.Sleep(15 * time.Minute)
+	}()
+
+	log("Starting caching")
+	for i := range shares.Shares {
+		// get path of the shares
+		path := shares.Shares[i].path
+		if path == "" {
+			continue
+		}
+		fillCache(path)
 	}
 }
