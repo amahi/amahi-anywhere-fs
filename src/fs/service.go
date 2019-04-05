@@ -698,17 +698,38 @@ func (service *MercuryFsService) uploadFile(writer http.ResponseWriter, request 
 		}
 		defer file.Close()
 
-		// FIXME -- check the filename so it does not start with dots, or slashes!
 		fullPath, _ := service.fullPathToFile(share, path+"/"+handler.Filename)
+		//check if the file name is valid
+		if !validFilename(fullPath) {
+			debug(2, "invalid filename")
+			writer.WriteHeader(http.StatusUnsupportedMediaType)
+			service.debugInfo.requestServed(int64(0))
+			log("\"POST %s\" 415 0 \"%s\"", query, ua)
+			return
+		}
 
-		f, err := os.OpenFile(fullPath, os.O_WRONLY|os.O_CREATE, 0644)
+		//check file status
+		status := checkFileExists(fullPath, file)
+		file.Seek(0, 0)
+
+		var f *os.File
+		if status == FILE_NOT_EXISTS {
+			//file not exists, create and write it
+			f, err = os.OpenFile(fullPath, os.O_WRONLY|os.O_CREATE, 0644)
+
+		} else if status == FILE_EXISTS {
+			//file exists but md5 is different, rename it
+			fullPath = renameFile(fullPath)
+			f, err = os.OpenFile(fullPath, os.O_WRONLY|os.O_CREATE, 0644)
+		}
 		if err != nil {
 			debug(2, "Error creating uploaded file: %s", err.Error())
 			writer.WriteHeader(http.StatusServiceUnavailable)
 			service.debugInfo.requestServed(int64(0))
 			log("\"POST %s\" 503 0 \"%s\"", query, ua)
 			return
-		}
+		} // status == FILE_SAME_MD5, ignore it
+
 		defer f.Close()
 		io.Copy(f, file)
 
