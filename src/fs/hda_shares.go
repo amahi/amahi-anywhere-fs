@@ -182,7 +182,6 @@ func (shares *HdaShares) startMetadataPrefill(library *metadata.Library) {
 	time.Sleep(15 * time.Second)
 	for i := range shares.Shares {
 		path := shares.Shares[i].path
-		fmt.Println("path: ", path)
 		tags := strings.ToLower(shares.Shares[i].tags)
 		debug(5, `checking share "%s" (%s)  with tags: %s\n`, shares.Shares[i].name, path, tags)
 		if path == "" || tags == "" {
@@ -204,10 +203,12 @@ func (shares *HdaShares) createThumbnailCache() {
 			// watch for events
 			case event := <-watcher.Events:
 				op := event.Op.String()
-				log("EVENT: ", op)
+				log("FSNOTIFY EVENT: `%s`, NAME: `%s`", op, event.Name)
 				switch {
 				case op == "CREATE" || op == "WRITE":
 					fillCache(event.Name)
+				case op == "REMOVE" || op == "RENAME":
+					removeCache(event.Name)
 				}
 
 				// watch for errors

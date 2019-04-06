@@ -78,7 +78,6 @@ func (f *fileCacheInfo) fillCache(filePath, share, path string) {
 			path = "/"
 		}
 		path := filepath.Join(path, filename)
-		log("inside fill cache. Path is", path)
 		f.endpoint = fmt.Sprintf(`/cache?s=%s&p=%s`, share, path)
 		if err != nil {
 			f.invalidateCache()
