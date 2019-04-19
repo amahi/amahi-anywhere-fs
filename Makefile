@@ -94,4 +94,4 @@ install: build
 	install bin/fs $(DESTDIR)/usr/bin/amahi-anywhere
 
 install-rpm-deps:
-	sudo yum -y install golang
+	sudo dnf -y install golang
