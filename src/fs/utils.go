@@ -4,7 +4,7 @@ import (
 	"strings"
 )
 
-func getEscapedPath(query string, paramName string) string {
+func getEscapedQueryParam(query string, paramName string) string {
 	for query != "" {
 		key := query
 		if i := strings.IndexAny(key, "&;"); i >= 0 {

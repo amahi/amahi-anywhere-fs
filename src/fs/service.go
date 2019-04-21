@@ -219,7 +219,7 @@ func (service *MercuryFsService) serveFile(writer http.ResponseWriter, request *
 	service.printRequest(request)
 
 	// to get the query params without replacing the escape characters
-	escapedShare, escapedPath := getEscapedPath(q.RawQuery, "s"), getEscapedPath(q.RawQuery, "p")
+	escapedShare, escapedPath := getEscapedQueryParam(q.RawQuery, "s"), getEscapedQueryParam(q.RawQuery, "p")
 
 	fullPath, err := service.fullPathToFile(escapedShare, escapedPath)
 	if err != nil || !isExist(fullPath) {
