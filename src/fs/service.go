@@ -21,7 +21,6 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
-	"path/filepath"
 	"regexp"
 	"runtime"
 	"strconv"
@@ -181,10 +180,7 @@ func (service *MercuryFsService) fullPathToFile(shareName, relativePath string) 
 		return "", errors.New(fmt.Sprintf("path %s contains ..", relativePath))
 	}
 
-	if strings.HasPrefix(relativePath, "/") {
-		relativePath = relativePath[1:]
-	}
-	path := filepath.Join(share.GetPath(), relativePath)
+	path := share.GetPath() + relativePath
 	debug(3, "Full path: %s", path)
 	return path, nil
 }
@@ -218,14 +214,7 @@ func (service *MercuryFsService) serveFile(writer http.ResponseWriter, request *
 
 	service.printRequest(request)
 
-	// to get the query params without replacing the escape characters
-	escapedShare, escapedPath := getEscapedQueryParam(q.RawQuery, "s"), getEscapedQueryParam(q.RawQuery, "p")
-
-	fullPath, err := service.fullPathToFile(escapedShare, escapedPath)
-	if err != nil || !isExist(fullPath) {
-		fullPath, err = service.fullPathToFile(share, path)
-	}
-
+	fullPath, err := service.fullPathToFile(share, path)
 	if err != nil {
 		debug(2, "File not found: %s", err)
 		http.NotFound(writer, request)

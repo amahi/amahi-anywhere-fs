@@ -173,7 +173,7 @@ func getContentType(fileName string) string {
 		".ppsm": "application/vnd.ms-powerpoint.slideshow.macroEnabled.12",
 		".html": "text/html",
 		".htm":  "text/html",
-		".csv":  "text/csv",
+		".csv": "text/csv",
 		// subtitle stuff, with others below
 		".srt": "application/x-subrip",
 		".sub": "text/vnd.dvb.subtitle",
@@ -192,12 +192,4 @@ func getContentType(fileName string) string {
 	}
 
 	return result
-}
-
-func isExist(path string) bool {
-	_, err := os.Stat(path)
-	if os.IsNotExist(err) {
-		return false
-	}
-	return true
 }
