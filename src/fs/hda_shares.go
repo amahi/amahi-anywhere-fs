@@ -35,7 +35,7 @@ type HdaShares struct {
 	Shares      []*HdaShare
 	LastChecked time.Time
 	sync.RWMutex
-	rootDir     string
+	rootDir string
 }
 
 func NewHdaShares(rootDir string) (*HdaShares, error) {
@@ -57,22 +57,30 @@ func (shares *HdaShares) updateShares() error {
 func (shares *HdaShares) updateSqlShares() error {
 	dbconn, err := sql.Open("mysql", MYSQL_CREDENTIALS)
 	if err != nil {
-		log(err.Error())
+		//log(err.Error())
+		//log2.Info(err.Error())
+		log_info(err.Error())
 		return err
 	}
 	defer dbconn.Close()
 	q := SQL_SELECT_SHARES
-	debug(5, "share query: %s\n", q)
+	//debug(5, "share query: %s\n", q)
+	//log2.Debug(fmt.Sprintf("share query: %s\n", q))
+	log_debug("share query: %s\n", q)
 	rows, err := dbconn.Query(q)
 	if err != nil {
-		log(err.Error())
+		//log(err.Error())
+		//log2.Info(err.Error())
+		log_info(err.Error())
 		return err
 	}
 	newShares := make([]*HdaShare, 0)
 	for rows.Next() {
 		share := new(HdaShare)
 		rows.Scan(&share.name, &share.updatedAt, &share.path, &share.tags)
-		debug(5, "share found: %s\n", share.name)
+		//debug(5, "share found: %s\n", share.name)
+		//log2.Debug(fmt.Sprintf("share found: %s\n", share.name))
+		log_debug("share found: %s\n", share.name)
 		newShares = append(newShares, share)
 	}
 
@@ -88,7 +96,9 @@ func (shares *HdaShares) updateDirShares() (nil error) {
 
 	dir, err := os.Open(shares.rootDir)
 	if err != nil {
-		log(err.Error())
+		//log(err.Error())
+		//log2.Info(err.Error())
+		log_info(err.Error())
 		return err
 	}
 	defer dir.Close()
@@ -183,7 +193,9 @@ func (shares *HdaShares) startMetadataPrefill(library *metadata.Library) {
 	for i := range shares.Shares {
 		path := shares.Shares[i].path
 		tags := strings.ToLower(shares.Shares[i].tags)
-		debug(5, `checking share "%s" (%s)  with tags: %s\n`, shares.Shares[i].name, path, tags)
+		//debug(5, `checking share "%s" (%s)  with tags: %s\n`, shares.Shares[i].name, path, tags)
+		//log2.Debug(fmt.Sprintf(`checking share "%s" (%s)  with tags: %s\n`, shares.Shares[i].name, path, tags))
+		log_debug(`checking share "%s" (%s)  with tags: %s\n`, shares.Shares[i].name, path, tags)
 		if path == "" || tags == "" {
 			continue
 		}

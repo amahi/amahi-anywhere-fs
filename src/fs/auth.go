@@ -1,10 +1,10 @@
 package main
 
 import (
-	"net/http"
-	"encoding/json"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"strconv"
 )
 
@@ -49,12 +49,16 @@ func (service *MercuryFsService) authenticate(writer http.ResponseWriter, reques
 	authToken, err := service.Users.queryUser(pin)
 	switch {
 	case err == sql.ErrNoRows: // if no such user exits, send 401 Unauthorized
-		log("No user with pin: %s", pin)
+		//log("No user with pin: %s", pin)
+		//log2.Info(fmt.Sprintf("No user with pin: %s", pin))
+		log_info("No user with pin: %s", pin)
 		http.Error(writer, "Authentication Failed", http.StatusUnauthorized)
 		break
 	case err != nil: // if some other error, send 500 Internal Server Error
 		http.Error(writer, "Internal Server Error", http.StatusInternalServerError)
-		log(err.Error())
+		//log(err.Error())
+		//log2.Info(err.Error())
+		log_info(err.Error())
 		break
 	default: // if no error, send proper auth token for that user
 		respJson := fmt.Sprintf("{\"auth_token\": \"%s\"}", *authToken)

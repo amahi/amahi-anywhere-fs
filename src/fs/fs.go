@@ -17,7 +17,9 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	log2 "github.com/Sirupsen/logrus"
 	"github.com/amahi/go-metadata"
+	"golang.org/x/net/http2"
 	"hda_api_key"
 	"io/ioutil"
 	"math/rand"
@@ -30,7 +32,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"golang.org/x/net/http2"
 )
 
 // DANGER DANGER DANGER
@@ -95,7 +96,10 @@ func main() {
 		flag.PrintDefaults()
 		return
 	}
-	debugLevel(dbg)
+
+	//debugLevel(dbg)
+	//log2.SetLevel(log2.Level(dbg))
+	setLogLevel(log2.Level(dbg))
 
 	if noDelete {
 		fmt.Printf("NOTICE: running without deleting content!\n")
@@ -124,9 +128,13 @@ func main() {
 
 	go service.Shares.startMetadataPrefill(metadata)
 
-	log("Amahi Anywhere service v%s", VERSION)
+	//log("Amahi Anywhere service v%s", VERSION)
+	//log2.Info(fmt.Sprintf("Amahi Anywhere Service v%s", VERSION))
+	log_info("Amahi Anywhere service v%s", VERSION)
 
-	debug(4, "using api-key %s", apiKey)
+	//debug(4, "using api-key %s", apiKey)
+	//log2.Info(fmt.Sprintf("Using API-KEY %s", apiKey))
+	log_info("using api-key %s", apiKey)
 
 	if http2Debug {
 		http2.VerboseLogs = true
@@ -140,17 +148,22 @@ func main() {
 	for {
 		conn, err := contactPfe(relayHost, relayPort, apiKey, service)
 		if err != nil {
-			log("Error contacting the proxy.")
-			debug(2, "Error contacting the proxy: %s", err)
+			//debug(2, "Error contacting the proxy: %s", err)
+			//log2.Error(fmt.Sprintf("Error contacting the proxy: %s", err))
+			log_error("Error contacting the proxy: %s", err)
 		} else {
 			err = service.StartServing(conn)
 			if err != nil {
-				log("Error serving requests")
-				debug(2, "Error in StartServing: %s", err)
+				//log("Error serving requests")
+				//log2.Warn("Error serving requests")
+				log_warn("Error serving requests")
+				//debug(2, "Error in StartServing: %s", err)
+				//log2.Error(fmt.Sprintf("Error in StartServing: %s", err))
+				log_error("Error in StartServing: %s", err)
 			}
 		}
 		// reconnect fairly quickly, with some randomness
-		sleepTime := time.Duration(2000 + rand.Intn(2000))
+		sleepTime := time.Duration(20000 + rand.Intn(2000))
 		time.Sleep(sleepTime * time.Millisecond)
 	}
 	os.Remove(PID_FILE)
@@ -160,16 +173,22 @@ func main() {
 func contactPfe(relayHost, relayPort, apiKey string, service *MercuryFsService) (net.Conn, error) {
 
 	relayLocation := relayHost + ":" + relayPort
-	log("Contacting Relay at: " + relayLocation)
+	//log("Contacting Relay at: " + relayLocation)
+	//log2.Info("Contacting Relay at: " + relayLocation)
+	log_info("Contacting Relay at: " + relayLocation)
 	addr, err := net.ResolveTCPAddr("tcp", relayLocation)
 	if err != nil {
-		debug(2, "Error with ResolveTCPAddr: %s", err)
+		//debug(2, "Error with ResolveTCPAddr: %s", err)
+		//log2.Error(fmt.Sprintf("Error with ResolveTCPAddr: %s", err))
+		log_error("Error with ResolveTCPAddr: %s", err)
 		return nil, err
 	}
 
 	tcpConn, err := net.DialTCP("tcp", nil, addr)
 	if err != nil {
-		debug(2, "Error with initial DialTCP: %s", err)
+		//debug(2, "Error with initial DialTCP: %s", err)
+		//log2.Error(fmt.Sprintf("Error with initial DialTCP: %s", err))
+		log_error("Error with initial DialTCP: %s", err)
 		return nil, err
 	}
 
@@ -181,12 +200,19 @@ func contactPfe(relayHost, relayPort, apiKey string, service *MercuryFsService) 
 
 	if DisableCertChecking {
 		warning := "WARNING WARNING WARNING: running without checking TLS certs!!"
-		log(warning)
-		log(warning)
-		log(warning)
+		//log(warning)
+		//log(warning)
+		//log(warning)
+		//log2.Warn(warning)
+		//log2.Warn(warning)
+		//log2.Warn(warning)
+		log_warn(warning)
+		log_warn(warning)
+		log_warn(warning)
 		fmt.Println(warning)
 		fmt.Println(warning)
 		fmt.Println(warning)
+
 		service.TLSConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 
@@ -194,20 +220,26 @@ func contactPfe(relayHost, relayPort, apiKey string, service *MercuryFsService) 
 	buf := strings.NewReader(service.info.to_json())
 	request, err := http.NewRequest("PUT", "https://"+relayLocation+"/fs", buf)
 	if err != nil {
-		debug(2, "Error creating NewRequest:", err)
+		//debug(2, "Error creating NewRequest:", err)
+		//log2.Error(fmt.Sprintf("Error creating NewRequest:", err))
+		log_error("Error creating NewRequest:", err)
 		return nil, err
 	}
 
 	request.Header.Add("Api-Key", apiKey)
 	request.Header.Add("Authorization", fmt.Sprintf("Token %s", SECRET_TOKEN))
 	rawRequest, _ := httputil.DumpRequest(request, true)
-	debug(5, "%s", rawRequest)
+	//debug(5, "%s", rawRequest)
+	//log2.Debug(fmt.Sprintf("&s", rawRequest))
+	log_debug("%s", rawRequest)
 
 	var client *httputil.ClientConn
 
 	if DisableHttps {
 		warning := "WARNING WARNING: running without TLS!!"
-		log(warning)
+		//log(warning)
+		//log2.Warn(warning)
+		log_warn(warning)
 		fmt.Println(warning)
 		conn := tcpConn
 		client = httputil.NewClientConn(conn, nil)
@@ -218,17 +250,23 @@ func contactPfe(relayHost, relayPort, apiKey string, service *MercuryFsService) 
 
 	response, err := client.Do(request)
 	if err != nil {
-		debug(2, "Error writing to connection with Do: %s", err)
+		//debug(2, "Error writing to connection with Do: %s", err)
+		//log2.Error(fmt.Sprintf("Error writing to connection with Do: %s", err))
+		log_error("Error writing to connection with Do: %s", err)
 		return nil, err
 	}
 
 	if response.StatusCode != 200 {
 		msg := fmt.Sprintf("Got an error response: %s", response.Status)
-		log(msg)
+		//log(msg)
+		//log2.Info(msg)
+		log_info(msg)
 		return nil, errors.New(msg)
 	}
 
-	log("Connected to the proxy")
+	//log("Connected to the proxy")
+	//log2.Info("Connected to the proxy")
+	log_info("Connected to the proxy")
 
 	netCon, _ := client.Hijack()
 
@@ -256,7 +294,9 @@ func setup() error {
 	signal.Notify(c, os.Interrupt)
 	go func() {
 		for sig := range c {
-			log("Exiting with %v", sig)
+			//log("Exiting with %v", sig)
+			//log2.Info(fmt.Sprintf("Exiting with %v", sig))
+			log_info("Exiting with %v", sig)
 			os.Remove(PID_FILE)
 			os.Exit(1)
 		}

@@ -1,11 +1,11 @@
 package main
 
 import (
-	"sync"
+	"crypto/rand"
 	"database/sql"
 	"fmt"
+	"sync"
 	"time"
-	"crypto/rand"
 )
 
 type HdaUser struct {
@@ -44,7 +44,9 @@ func (users *HdaUsers) queryUser(pin string) (*string, error) {
 	} else {
 		dbconn, err := sql.Open("mysql", MYSQL_CREDENTIALS)
 		if err != nil {
-			log(err.Error())
+			//log(err.Error())
+			//log2.Info(err.Error())
+			log_info(err.Error())
 			return nil, err
 		}
 		defer dbconn.Close()
@@ -109,7 +111,9 @@ func (users *HdaUsers) remove(authToken string) {
 func (users *HdaUsers) revalidateSession(authToken string, user *HdaUser) (isValid bool, err error) {
 	dbconn, err := sql.Open("mysql", MYSQL_CREDENTIALS)
 	if err != nil {
-		log(err.Error())
+		//log(err.Error())
+		//log2.Info(err.Error())
+		log_info(err.Error())
 		return
 	}
 	defer dbconn.Close()
@@ -130,7 +134,9 @@ func (users *HdaUsers) revalidateSession(authToken string, user *HdaUser) (isVal
 func (user *HdaUser) AvailableShares() ([]*HdaShare, error) {
 	dbconn, err := sql.Open("mysql", MYSQL_CREDENTIALS)
 	if err != nil {
-		log(err.Error())
+		//log(err.Error())
+		//log2.Info(err.Error())
+		log_info(err.Error())
 		return nil, err
 	}
 	defer dbconn.Close()
@@ -143,7 +149,9 @@ func (user *HdaUser) AvailableShares() ([]*HdaShare, error) {
 		"WHERE u.id = ? AND s.visible = 1 ORDER BY s.name ASC;"
 	rows, err := dbconn.Query(q, user.id)
 	if err != nil {
-		log(err.Error())
+		//log(err.Error())
+		//log2.Info(err.Error())
+		log_info(err.Error())
 		return nil, err
 	}
 	newShares := make([]*HdaShare, 0)
@@ -161,7 +169,9 @@ func (user *HdaUser) HasReadAccess(shareName string) (access bool, err error) {
 	}
 	dbconn, err := sql.Open("mysql", MYSQL_CREDENTIALS)
 	if err != nil {
-		log(err.Error())
+		//log(err.Error())
+		//log2.Info(err.Error())
+		log_info(err.Error())
 		return
 	}
 	defer dbconn.Close()
@@ -179,7 +189,9 @@ func (user *HdaUser) HasWriteAccess(shareName string) (access bool, err error) {
 	}
 	dbconn, err := sql.Open("mysql", MYSQL_CREDENTIALS)
 	if err != nil {
-		log(err.Error())
+		//log(err.Error())
+		//log2.Info(err.Error())
+		log_info(err.Error())
 		return
 	}
 	defer dbconn.Close()
