@@ -9,7 +9,7 @@ Source:         %{name}-%{version}.tar.gz
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 BuildRequires:	golang
-Requires:	mailcap rsyslog
+Requires:	mailcap
 
 %define debug_package %{nil}
 
