@@ -79,6 +79,7 @@ func NewMercuryFSService(rootDir, localAddr string, isDemo bool) (service *Mercu
 	apiRouter.HandleFunc("/apps", service.appsList).Methods("GET")
 	apiRouter.HandleFunc("/md", service.getMetadata).Methods("GET")
 	apiRouter.HandleFunc("/hda_debug", service.hdaDebug).Methods("GET")
+	apiRouter.HandleFunc("/logs", service.serveLogs).Methods("GET")
 
 	service.apiRouter = apiRouter
 
@@ -219,7 +220,6 @@ func (service *MercuryFsService) serveFile(writer http.ResponseWriter, request *
 
 	//debug(2, "serveFile GET request")
 	log_trace("deleteFile DELETE request")
-
 
 	service.printRequest(request)
 
@@ -736,4 +736,42 @@ func (service *MercuryFsService) uploadFile(writer http.ResponseWriter, request 
 	writer.WriteHeader(http.StatusOK)
 
 	return
+}
+
+func (service *MercuryFsService) serveLogs(writer http.ResponseWriter, request *http.Request) {
+	q := request.URL
+	amt := q.Query().Get("mode")
+	ua := request.Header.Get("User-Agent")
+	query := pathForLog(request.URL)
+
+	mode := 100 // determines the numbers of lines to serve (from last). -1 will cause serving complete log file
+
+	if n, err := strconv.Atoi(amt); err == nil {
+		mode = n
+	} else {
+		if strings.ToLower(amt) == "all" {
+			mode = -1
+		}
+	}
+
+	osFile, err := os.Open(LOGFILE)
+	if err != nil {
+		log_error("Error opening log file: %s", err.Error())
+		http.NotFound(writer, request)
+		service.debugInfo.requestServed(int64(0))
+		log_info("\"GET %s\" 404 0 \"%s\"", query, ua)
+		return
+	}
+	defer osFile.Close()
+
+	fi, _ := osFile.Stat()
+	if mode == -1 {
+		http.ServeContent(writer, request, osFile.Name(), fi.ModTime(), osFile)
+		log_info("\"GET %s\" %d %d \"%s\"", query, 200, fi.Size(), ua)
+	} else {
+		// TODO: add log number to the log file. Make use of bufio.Scanner to readlines. Make use of binary search
+		// to find the appropriate line number.
+		http.ServeContent(writer, request, osFile.Name(), fi.ModTime(), osFile)
+		log_info("\"GET %s\" %d %d \"%s\"", query, 200, fi.Size(), ua)
+	}
 }
