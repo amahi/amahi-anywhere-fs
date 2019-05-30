@@ -35,7 +35,7 @@ type HdaShares struct {
 	Shares      []*HdaShare
 	LastChecked time.Time
 	sync.RWMutex
-	rootDir     string
+	rootDir string
 }
 
 func NewHdaShares(rootDir string) (*HdaShares, error) {
@@ -192,5 +192,39 @@ func (shares *HdaShares) startMetadataPrefill(library *metadata.Library) {
 		} else if strings.Contains(tags, "tv") {
 			library.Prefill(path, "tv", 0, true)
 		}
+	}
+}
+
+func (shares *HdaShares) createThumbnailCache() {
+	time.Sleep(2 * time.Second)
+	go func() {
+		for {
+			select {
+			// watch for events
+			case event := <-watcher.Events:
+				op := event.Op.String()
+				log("FSNOTIFY EVENT: `%s`, NAME: `%s`", op, event.Name)
+				switch {
+				case op == "CREATE" || op == "WRITE":
+					fillCache(event.Name)
+				case op == "REMOVE" || op == "RENAME":
+					removeCache(event.Name)
+				}
+
+				// watch for errors
+			case err := <-watcher.Errors:
+				fmt.Println("ERROR", err)
+			}
+		}
+	}()
+
+	log("Starting caching")
+	for i := range shares.Shares {
+		// get path of the shares
+		path := shares.Shares[i].path
+		if path == "" {
+			continue
+		}
+		fillCache(path)
 	}
 }

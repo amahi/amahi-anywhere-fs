@@ -11,6 +11,8 @@ package main
 
 import (
 	"crypto/tls"
+	"github.com/fsnotify/fsnotify"
+
 	// this is required for the side effect that it will register sha384/512 algorithms.
 	// should not be needed in the future https://codereview.appspot.com/87670045/
 	_ "crypto/sha512"
@@ -18,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/amahi/go-metadata"
+	"golang.org/x/net/http2"
 	"hda_api_key"
 	"io/ioutil"
 	"math/rand"
@@ -30,7 +33,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"golang.org/x/net/http2"
 )
 
 // DANGER DANGER DANGER
@@ -42,6 +44,9 @@ const VERSION = "2.2"
 
 var noDelete = false
 var noUpload = false
+
+// watcher for watching changes in files
+var watcher *fsnotify.Watcher
 
 // profiling info
 // func init() { go func() { http.ListenAndServe(":4242", nil) }() }
@@ -123,6 +128,11 @@ func main() {
 	service.metadata = metadata
 
 	go service.Shares.startMetadataPrefill(metadata)
+
+	watcher, _ = fsnotify.NewWatcher()
+	defer watcher.Close()
+
+	go service.Shares.createThumbnailCache()
 
 	log("Amahi Anywhere service v%s", VERSION)
 
