@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -669,6 +670,41 @@ func (service *MercuryFsService) uploadFile(writer http.ResponseWriter, request 
 	}
 
 	writer.WriteHeader(http.StatusOK)
+
+	return
+}
+
+func (service *MercuryFsService) serveSystemHealth(writer http.ResponseWriter, request *http.Request) {
+	q := request.URL
+	// Amt of data points to serve
+	// FIXME: change the name :P
+	amt := q.Query().Get("amt")
+	ua := request.Header.Get("User-Agent")
+	query := pathForLog(request.URL)
+
+	service.printRequest(request)
+
+	a, err := strconv.ParseInt(amt, 10, 32)
+
+	if err != nil {
+		writer.WriteHeader(http.StatusBadRequest)
+		log("\"GET %s\" %d %d \"%s\"", query, 400, amt, ua)
+	}
+
+	var ssm []SystemStatusModel
+
+	DB.Order("id desc").Limit(a).Find(&ssm)
+
+	ss := GetSystemStatusFromModelList(ssm)
+
+	writer.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(writer).Encode(ss)
+	if err != nil {
+		writer.WriteHeader(http.StatusInternalServerError)
+		log("\"GET %s\" %d %d \"%s\"", query, 500, amt, ua)
+	}
+
+	log("\"GET %s\" %d \"%s\"", query, 200, ua)
 
 	return
 }
