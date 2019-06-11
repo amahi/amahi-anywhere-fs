@@ -25,8 +25,9 @@ func CreateSSModelObject(status SystemStatus) (SystemStatusModel) {
 	for _, v := range status.CPUUsedPercent {
 		if str == "" {
 			str = fmt.Sprintf("%v", v)
+		} else {
+			str = fmt.Sprintf("%s|%v", str, v)
 		}
-		str = fmt.Sprintf("%s|%v", str, v)
 	}
 
 	ss := SystemStatusModel{
