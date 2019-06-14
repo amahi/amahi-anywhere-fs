@@ -58,7 +58,7 @@ func (service *MercuryFsService) authenticate(writer http.ResponseWriter, reques
 		http.Error(writer, "Internal Server Error", http.StatusInternalServerError)
 		//log(err.Error())
 		//log2.Info(err.Error())
-		log_info(err.Error())
+		log_error(err.Error())
 		break
 	default: // if no error, send proper auth token for that user
 		respJson := fmt.Sprintf("{\"auth_token\": \"%s\"}", *authToken)

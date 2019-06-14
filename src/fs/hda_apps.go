@@ -40,7 +40,7 @@ func (apps *HdaApps) list() error {
 		//log(err.Error())
 		//TODO: to check with mentors about the debug level of these type of errors. Currently assigning INFO
 		//log2.Info(err.Error())
-		log_info(err.Error())
+		log_error(err.Error())
 		return err
 	}
 	defer dbconn.Close()
@@ -49,7 +49,7 @@ func (apps *HdaApps) list() error {
 	if err != nil {
 		//log(err.Error())
 		//log2.Info(err.Error())
-		log_info(err.Error())
+		log_error(err.Error())
 		return err
 	}
 	newApps := make([]*HdaApp, 0)

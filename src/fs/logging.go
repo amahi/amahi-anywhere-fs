@@ -15,7 +15,8 @@ import (
 	"os"
 )
 
-const LOGFILE = "/var/log/amahi-anywhere.log"
+//const LOGFILE = "/var/log/amahi-anywhere.log"
+const LOGFILE = "temp_log.log"
 
 func initializeLogging() {
 	logFile, err := os.OpenFile(LOGFILE, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -27,7 +28,7 @@ func initializeLogging() {
 	Formatter := new(log2.TextFormatter)
 	Formatter.TimestampFormat = "02-01-2006 15:04:05"
 	Formatter.FullTimestamp = true
-	//Formatter.DisableColors = true
+	Formatter.DisableColors = true
 	log2.SetFormatter(Formatter)
 	log2.SetOutput(logFile)
 }
@@ -41,73 +42,36 @@ func getLogLevel() log2.Level {
 }
 
 func log_trace(f string, args ...interface{}) {
-	msg := fmt.Sprintf(f, args)
+	msg := fmt.Sprintf(f, args...)
 	log2.Trace(msg)
 }
 
 func log_debug(f string, args ...interface{}) {
-	msg := fmt.Sprintf(f, args)
+	msg := fmt.Sprintf(f, args...)
 	log2.Debug(msg)
 }
 
 func log_info(f string, args ...interface{}) {
-	msg := fmt.Sprintf(f, args)
+	msg := fmt.Sprintf(f, args...)
 	log2.Info(msg)
 }
 
 func log_warn(f string, args ...interface{}) {
-	msg := fmt.Sprintf(f, args)
+	msg := fmt.Sprintf(f, args...)
 	log2.Warn(msg)
 }
 
 func log_error(f string, args ...interface{}) {
-	msg := fmt.Sprintf(f, args)
+	msg := fmt.Sprintf(f, args...)
 	log2.Error(msg)
 }
 
 func log_fatal(f string, args ...interface{}) {
-	msg := fmt.Sprintf(f, args)
+	msg := fmt.Sprintf(f, args...)
 	log2.Fatal(msg)
 }
 
 func log_panic(f string, args ...interface{}) {
-	msg := fmt.Sprintf(f, args)
+	msg := fmt.Sprintf(f, args...)
 	log2.Panic(msg)
 }
-
-//
-//var logger *logging.Logger
-//
-//func initializeLogging() {
-//	logFile, err := os.OpenFile(LOGFILE, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-//	if err != nil {
-//		fmt.Println("WARNING: failed to open ", LOGFILE, " defaulting to standard output")
-//		logFile = os.Stdout
-//	}
-//
-//	Formatter := new(log2.TextFormatter)
-//	Formatter.TimestampFormat = "02-01-2006 15:04:05"
-//	Formatter.FullTimestamp = true
-//	//Formatter.DisableColors = true
-//	log2.SetFormatter(Formatter)
-//	log2.SetOutput(logFile)
-//
-//	logger = logging.New(logFile, "", logging.LstdFlags)
-//}
-//
-//func log(f string, args ...interface{}) {
-//	logger.Printf(f, args...)
-//}
-//
-//func debugLevel(level int) {
-//	currentDebugLevel = level
-//}
-//
-//func debug(level int, f string, args ...interface{}) {
-//	if PRODUCTION {
-//		return
-//	}
-//	if level <= currentDebugLevel {
-//		log(f, args...)
-//	}
-//}

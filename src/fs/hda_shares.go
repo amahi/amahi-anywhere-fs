@@ -59,7 +59,7 @@ func (shares *HdaShares) updateSqlShares() error {
 	if err != nil {
 		//log(err.Error())
 		//log2.Info(err.Error())
-		log_info(err.Error())
+		log_error(err.Error())
 		return err
 	}
 	defer dbconn.Close()
@@ -71,7 +71,7 @@ func (shares *HdaShares) updateSqlShares() error {
 	if err != nil {
 		//log(err.Error())
 		//log2.Info(err.Error())
-		log_info(err.Error())
+		log_error(err.Error())
 		return err
 	}
 	newShares := make([]*HdaShare, 0)
@@ -98,7 +98,7 @@ func (shares *HdaShares) updateDirShares() (nil error) {
 	if err != nil {
 		//log(err.Error())
 		//log2.Info(err.Error())
-		log_info(err.Error())
+		log_error(err.Error())
 		return err
 	}
 	defer dir.Close()

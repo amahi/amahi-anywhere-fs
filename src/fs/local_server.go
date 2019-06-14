@@ -25,7 +25,7 @@ func (service *MercuryFsService) startLocalServer() {
 
 		//debug(2, "Error resolving local address: %s", err.Error())
 		//log2.Error(fmt.Sprintf("Error resolving local address: %s", err.Error()))
-		log_debug("Error resolving local address: %s", err.Error())
+		log_error("Error resolving local address: %s", err.Error())
 		return
 	}
 
@@ -37,7 +37,7 @@ func (service *MercuryFsService) startLocalServer() {
 
 		//debug(2, "Error on ListenTCP: %s", err.Error())
 		//log2.Debug(fmt.Sprintf("Error on ListenTCP: %s", err.Error()))
-		log_debug("Error on ListenTCP: %s", err.Error())
+		log_error("Error on ListenTCP: %s", err.Error())
 		return
 	}
 	defer listener.Close()
@@ -54,10 +54,10 @@ func (service *MercuryFsService) startLocalServer() {
 		if err != nil {
 			//log("An error occurred in the local file server")
 			//log2.Error("An error occurred in the local file server")
-			log_error("An error occurred in the local file server")
+			log_warn("An error occurred in the local file server")
 			//debug(2, "local file server: %s", err.Error())
 			//log2.Debug(fmt.Sprintf(2, "local file server: %s", err.Error()))
-			log_debug("local file server: %s", err.Error())
+			log_error("local file server: %s", err.Error())
 		}
 	}
 }

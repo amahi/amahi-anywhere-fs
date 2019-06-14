@@ -46,7 +46,7 @@ func (users *HdaUsers) queryUser(pin string) (*string, error) {
 		if err != nil {
 			//log(err.Error())
 			//log2.Info(err.Error())
-			log_info(err.Error())
+			log_error(err.Error())
 			return nil, err
 		}
 		defer dbconn.Close()
@@ -113,7 +113,7 @@ func (users *HdaUsers) revalidateSession(authToken string, user *HdaUser) (isVal
 	if err != nil {
 		//log(err.Error())
 		//log2.Info(err.Error())
-		log_info(err.Error())
+		log_error(err.Error())
 		return
 	}
 	defer dbconn.Close()
@@ -136,7 +136,7 @@ func (user *HdaUser) AvailableShares() ([]*HdaShare, error) {
 	if err != nil {
 		//log(err.Error())
 		//log2.Info(err.Error())
-		log_info(err.Error())
+		log_error(err.Error())
 		return nil, err
 	}
 	defer dbconn.Close()
@@ -151,7 +151,7 @@ func (user *HdaUser) AvailableShares() ([]*HdaShare, error) {
 	if err != nil {
 		//log(err.Error())
 		//log2.Info(err.Error())
-		log_info(err.Error())
+		log_error(err.Error())
 		return nil, err
 	}
 	newShares := make([]*HdaShare, 0)
@@ -171,7 +171,7 @@ func (user *HdaUser) HasReadAccess(shareName string) (access bool, err error) {
 	if err != nil {
 		//log(err.Error())
 		//log2.Info(err.Error())
-		log_info(err.Error())
+		log_error(err.Error())
 		return
 	}
 	defer dbconn.Close()
@@ -191,7 +191,7 @@ func (user *HdaUser) HasWriteAccess(shareName string) (access bool, err error) {
 	if err != nil {
 		//log(err.Error())
 		//log2.Info(err.Error())
-		log_info(err.Error())
+		log_error(err.Error())
 		return
 	}
 	defer dbconn.Close()
