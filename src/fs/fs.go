@@ -100,24 +100,24 @@ func main() {
 	setLogLevel(log2.Level(dbg))
 
 	if noDelete {
-		log_warn("Running without deleting content!")
+		logWarn("Running without deleting content!")
 	}
 	if noUpload {
-		log_warn("Running without uploading content!")
+		logWarn("Running without uploading content!")
 	}
 
 	initializeLogging()
 
 	meta, err := metadata.Init(100000, METADATA_FILE, TMDB_API_KEY, TVRAGE_API_KEY, TVDB_API_KEY)
 	if err != nil {
-		log_fatal("Error initializing metadata library")
+		logFatal("Error initializing metadata library")
 		os.Remove(PID_FILE)
 		os.Exit(1)
 	}
 
 	service, err := NewMercuryFSService(rootDir, localAddr, isDemo)
 	if err != nil {
-		log_fatal("Error making service (%s, %s): %s\n", rootDir, localAddr, err.Error())
+		logFatal("Error making service (%s, %s): %s\n", rootDir, localAddr, err.Error())
 		os.Remove(PID_FILE)
 		os.Exit(1)
 	}
@@ -126,8 +126,8 @@ func main() {
 
 	go service.Shares.startMetadataPrefill(meta)
 
-	log_info("Amahi Anywhere service v%s", VERSION)
-	log_info("using api-key %s", apiKey)
+	logInfo("Amahi Anywhere service v%s", VERSION)
+	logInfo("using api-key %s", apiKey)
 
 	if http2Debug {
 		http2.VerboseLogs = true
@@ -141,11 +141,11 @@ func main() {
 	for {
 		conn, err := contactPfe(relayHost, relayPort, apiKey, service)
 		if err != nil {
-			log_error("Error contacting the proxy: %s", err)
+			logError("Error contacting the proxy: %s", err)
 		} else {
 			err = service.StartServing(conn)
 			if err != nil {
-				log_error("Error in StartServing: %s", err)
+				logError("Error in StartServing: %s", err)
 			}
 		}
 		// reconnect fairly quickly, with some randomness
@@ -158,16 +158,16 @@ func main() {
 // connect to the proxy and send a POST request with the api-key
 func contactPfe(relayHost, relayPort, apiKey string, service *MercuryFsService) (net.Conn, error) {
 	relayLocation := relayHost + ":" + relayPort
-	log_info("Contacting Relay at: " + relayLocation)
+	logInfo("Contacting Relay at: " + relayLocation)
 	addr, err := net.ResolveTCPAddr("tcp", relayLocation)
 	if err != nil {
-		log_error("Error with ResolveTCPAddr: %s", err)
+		logError("Error with ResolveTCPAddr: %s", err)
 		return nil, err
 	}
 
 	tcpConn, err := net.DialTCP("tcp", nil, addr)
 	if err != nil {
-		log_error("Error with initial DialTCP: %s", err)
+		logError("Error with initial DialTCP: %s", err)
 		return nil, err
 	}
 
@@ -179,9 +179,9 @@ func contactPfe(relayHost, relayPort, apiKey string, service *MercuryFsService) 
 
 	if DisableCertChecking {
 		warning := "WARNING WARNING WARNING: running without checking TLS certs!!"
-		log_warn(warning)
-		log_warn(warning)
-		log_warn(warning)
+		logWarn(warning)
+		logWarn(warning)
+		logWarn(warning)
 		fmt.Println(warning)
 		fmt.Println(warning)
 		fmt.Println(warning)
@@ -193,20 +193,20 @@ func contactPfe(relayHost, relayPort, apiKey string, service *MercuryFsService) 
 	buf := strings.NewReader(service.info.to_json())
 	request, err := http.NewRequest("PUT", "https://"+relayLocation+"/fs", buf)
 	if err != nil {
-		log_error("Error creating NewRequest:", err)
+		logError("Error creating NewRequest:", err)
 		return nil, err
 	}
 
 	request.Header.Add("Api-Key", apiKey)
 	request.Header.Add("Authorization", fmt.Sprintf("Token %s", SECRET_TOKEN))
 	rawRequest, _ := httputil.DumpRequest(request, true)
-	log_debug("Raw API-key request: %s", rawRequest)
+	logDebug("Raw API-key request: %s", rawRequest)
 
 	var client *httputil.ClientConn
 
 	if DisableHttps {
 		warning := "WARNING WARNING: running without TLS!!"
-		log_warn(warning)
+		logWarn(warning)
 		fmt.Println(warning)
 		conn := tcpConn
 		client = httputil.NewClientConn(conn, nil)
@@ -217,17 +217,17 @@ func contactPfe(relayHost, relayPort, apiKey string, service *MercuryFsService) 
 
 	response, err := client.Do(request)
 	if err != nil {
-		log_error("Error writing to connection with Do: %s", err)
+		logError("Error writing to connection with Do: %s", err)
 		return nil, err
 	}
 
 	if response.StatusCode != 200 {
 		msg := fmt.Sprintf("Got an error response: %s", response.Status)
-		log_info(msg)
+		logInfo(msg)
 		return nil, errors.New(msg)
 	}
 
-	log_info("Connected to the proxy")
+	logInfo("Connected to the proxy")
 
 	netCon, _ := client.Hijack()
 
@@ -237,7 +237,7 @@ func contactPfe(relayHost, relayPort, apiKey string, service *MercuryFsService) 
 // Clean up and quit
 func cleanQuit(exitCode int, message string) {
 	//fmt.Println("FATAL:", message)
-	log_fatal(message)
+	logFatal(message)
 	os.Exit(exitCode)
 }
 
@@ -250,7 +250,7 @@ func panicHandler() {
 		default:
 			errStr = "Error in mapping. Can't process the error"
 		}
-		log_panic(errStr)
+		logPanic(errStr)
 		os.Remove(PID_FILE)
 		os.Exit(1)
 	}
@@ -265,7 +265,7 @@ func setup() error {
 	signal.Notify(c, os.Interrupt)
 	go func() {
 		for sig := range c {
-			log_fatal("Exiting with %v", sig)
+			logFatal("Exiting with %v", sig)
 			os.Remove(PID_FILE)
 			os.Exit(1)
 		}
@@ -287,7 +287,7 @@ func checkPidFile() {
 		c, err := f.Read(pid)
 		if err == nil {
 			v, _ := strconv.Atoi(string(pid[:c]))
-			log_info("PID: %#v\n", v)
+			logInfo("PID: %#v\n", v)
 			if !exists(fmt.Sprintf("/proc/%s/stat", string(pid[:c]))) {
 				// the process does not exist. pid file is stale
 				// note: this works on systems with /proc/
@@ -297,9 +297,9 @@ func checkPidFile() {
 		}
 	}
 	if stale {
-		log_info("PID file exists, but it's stale. Continuing.")
+		logInfo("PID file exists, but it's stale. Continuing.")
 	} else {
-		log_fatal("PID file exists and process is running. Exiting.")
+		logFatal("PID file exists and process is running. Exiting.")
 		os.Exit(1)
 	}
 }

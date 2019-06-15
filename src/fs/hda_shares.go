@@ -59,19 +59,19 @@ func (shares *HdaShares) updateSqlShares() error {
 	if err != nil {
 		//log(err.Error())
 		//log2.Info(err.Error())
-		log_error(err.Error())
+		logError(err.Error())
 		return err
 	}
 	defer dbconn.Close()
 	q := SQL_SELECT_SHARES
 	//debug(5, "share query: %s\n", q)
 	//log2.Debug(fmt.Sprintf("share query: %s\n", q))
-	log_debug("share query: %s\n", q)
+	logDebug("share query: %s\n", q)
 	rows, err := dbconn.Query(q)
 	if err != nil {
 		//log(err.Error())
 		//log2.Info(err.Error())
-		log_error(err.Error())
+		logError(err.Error())
 		return err
 	}
 	newShares := make([]*HdaShare, 0)
@@ -80,7 +80,7 @@ func (shares *HdaShares) updateSqlShares() error {
 		rows.Scan(&share.name, &share.updatedAt, &share.path, &share.tags)
 		//debug(5, "share found: %s\n", share.name)
 		//log2.Debug(fmt.Sprintf("share found: %s\n", share.name))
-		log_debug("share found: %s\n", share.name)
+		logDebug("share found: %s\n", share.name)
 		newShares = append(newShares, share)
 	}
 
@@ -98,7 +98,7 @@ func (shares *HdaShares) updateDirShares() (nil error) {
 	if err != nil {
 		//log(err.Error())
 		//log2.Info(err.Error())
-		log_error(err.Error())
+		logError(err.Error())
 		return err
 	}
 	defer dir.Close()
@@ -195,7 +195,7 @@ func (shares *HdaShares) startMetadataPrefill(library *metadata.Library) {
 		tags := strings.ToLower(shares.Shares[i].tags)
 		//debug(5, `checking share "%s" (%s)  with tags: %s\n`, shares.Shares[i].name, path, tags)
 		//log2.Debug(fmt.Sprintf(`checking share "%s" (%s)  with tags: %s\n`, shares.Shares[i].name, path, tags))
-		log_debug(`checking share "%s" (%s)  with tags: %s\n`, shares.Shares[i].name, path, tags)
+		logDebug(`checking share "%s" (%s)  with tags: %s\n`, shares.Shares[i].name, path, tags)
 		if path == "" || tags == "" {
 			continue
 		}

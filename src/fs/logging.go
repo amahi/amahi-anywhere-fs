@@ -41,37 +41,42 @@ func getLogLevel() log2.Level {
 	return log2.GetLevel()
 }
 
-func log_trace(f string, args ...interface{}) {
+func logTrace(f string, args ...interface{}) {
 	msg := fmt.Sprintf(f, args...)
 	log2.Trace(msg)
 }
 
-func log_debug(f string, args ...interface{}) {
+func logDebug(f string, args ...interface{}) {
 	msg := fmt.Sprintf(f, args...)
 	log2.Debug(msg)
 }
 
-func log_info(f string, args ...interface{}) {
+func logInfo(f string, args ...interface{}) {
 	msg := fmt.Sprintf(f, args...)
 	log2.Info(msg)
 }
 
-func log_warn(f string, args ...interface{}) {
+func logWarn(f string, args ...interface{}) {
 	msg := fmt.Sprintf(f, args...)
 	log2.Warn(msg)
 }
 
-func log_error(f string, args ...interface{}) {
+func logError(f string, args ...interface{}) {
 	msg := fmt.Sprintf(f, args...)
 	log2.Error(msg)
 }
 
-func log_fatal(f string, args ...interface{}) {
+func logFatal(f string, args ...interface{}) {
 	msg := fmt.Sprintf(f, args...)
 	log2.Fatal(msg)
 }
 
-func log_panic(f string, args ...interface{}) {
+func logPanic(f string, args ...interface{}) {
 	msg := fmt.Sprintf(f, args...)
 	log2.Panic(msg)
+}
+
+func logHttp(method, endpoint string, responseCode, responseSize int, ua string) {
+	//having a separate method for logging will help easily modify the log statements if required
+	logInfo("\"%s %s\" %d %d \"%s\"", method, endpoint, responseCode, responseSize, ua)
 }

@@ -21,11 +21,11 @@ func (service *MercuryFsService) startLocalServer() {
 	if err != nil {
 		//log("Could not resolve local address")
 		//log2.Fatal("Could not resolve local address")
-		log_fatal("Could not resolve local address")
+		logFatal("Could not resolve local address")
 
 		//debug(2, "Error resolving local address: %s", err.Error())
 		//log2.Error(fmt.Sprintf("Error resolving local address: %s", err.Error()))
-		log_error("Error resolving local address: %s", err.Error())
+		logError("Error resolving local address: %s", err.Error())
 		return
 	}
 
@@ -33,11 +33,11 @@ func (service *MercuryFsService) startLocalServer() {
 	if err != nil {
 		//log("Local server could not be started")
 		//log2.Fatal("Local server could not be started")
-		log_fatal("Local server could not be started")
+		logFatal("Local server could not be started")
 
 		//debug(2, "Error on ListenTCP: %s", err.Error())
 		//log2.Debug(fmt.Sprintf("Error on ListenTCP: %s", err.Error()))
-		log_error("Error on ListenTCP: %s", err.Error())
+		logError("Error on ListenTCP: %s", err.Error())
 		return
 	}
 	defer listener.Close()
@@ -45,19 +45,19 @@ func (service *MercuryFsService) startLocalServer() {
 	for {
 		//log("Starting local file server")
 		//log2.Info("Starting local file server")
-		log_info("Starting local file server")
+		logInfo("Starting local file server")
 
 		//debug(2, "Starting local file server at: %s", LocalServerPort)
 		//log2.Debug(fmt.Sprintf("Starting local file server at: %s", LocalServerPort))
-		log_info("Starting local file server at: %s", LocalServerPort)
+		logInfo("Starting local file server at: %s", LocalServerPort)
 		err = service.server.Serve(listener)
 		if err != nil {
 			//log("An error occurred in the local file server")
 			//log2.Error("An error occurred in the local file server")
-			log_warn("An error occurred in the local file server")
+			logWarn("An error occurred in the local file server")
 			//debug(2, "local file server: %s", err.Error())
 			//log2.Debug(fmt.Sprintf(2, "local file server: %s", err.Error()))
-			log_error("local file server: %s", err.Error())
+			logError("local file server: %s", err.Error())
 		}
 	}
 }
