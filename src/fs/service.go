@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/amahi/go-metadata"
@@ -76,6 +77,7 @@ func NewMercuryFSService(rootDir, localAddr string, isDemo bool) (service *Mercu
 	apiRouter.HandleFunc("/files", use(service.deleteFile, service.shareWriteAccess, service.restrictCache)).Methods("DELETE")
 	apiRouter.HandleFunc("/files", use(service.uploadFile, service.shareWriteAccess, service.restrictCache)).Methods("POST")
 	apiRouter.HandleFunc("/cache", use(service.serveCache, service.shareReadAccess)).Methods("GET")
+	apiRouter.HandleFunc("/meta", use(service.serveMetadata, service.shareReadAccess)).Methods("GET")
 	apiRouter.HandleFunc("/apps", service.appsList).Methods("GET")
 	apiRouter.HandleFunc("/md", service.getMetadata).Methods("GET")
 	apiRouter.HandleFunc("/hda_debug", service.hdaDebug).Methods("GET")
@@ -742,4 +744,46 @@ func (service *MercuryFsService) uploadFile(writer http.ResponseWriter, request 
 	writer.WriteHeader(http.StatusOK)
 
 	return
+}
+
+func (service *MercuryFsService) serveMetadata(writer http.ResponseWriter, request *http.Request) {
+	q := request.URL
+	path := q.Query().Get("p")
+	share := q.Query().Get("s")
+	thumbnail := q.Query().Get("t")
+	ua := request.Header.Get("User-Agent")
+	query := pathForLog(request.URL)
+
+	debug(2, "serve_file GET request")
+
+	service.printRequest(request)
+
+	fullPath, err := service.fullPathToFile(share, path)
+
+	if err != nil {
+		debug(2, "File not found: %s", err)
+		http.NotFound(writer, request)
+		service.debugInfo.requestServed(int64(0))
+		log("\"GET %s\" 404 0 \"%s\"", query, ua)
+		return
+	}
+
+	var m *Metadata
+	if strings.ToLower(thumbnail) == "yes" {
+		m, err = getMetadataFromPath(fullPath, true)
+	} else {
+		m, err = getMetadataFromPath(fullPath, false)
+	}
+	if err != nil {
+		debug(2, "Error getting metadata: %s", err.Error())
+		http.NotFound(writer, request)
+		service.debugInfo.requestServed(int64(0))
+		log("\"GET %s\" 404 0 \"%s\"", query, ua)
+		return
+	}
+
+	b, err := json.Marshal(m)
+	size, err := writer.Write(b)
+	log("\"GET %s\" %d %d \"%s\"", query, 200, size, ua)
+	service.debugInfo.requestServed(int64(size))
 }
