@@ -783,7 +783,14 @@ func (service *MercuryFsService) serveMetadata(writer http.ResponseWriter, reque
 	}
 
 	b, err := json.Marshal(m)
-	size, err := writer.Write(b)
+	if err != nil {
+		debug(2, "Internal Server Error: %s", err.Error())
+		writer.WriteHeader(http.StatusInternalServerError)
+		service.debugInfo.requestServed(int64(0))
+		log("\"GET %s\" 500 0 \"%s\"", query, ua)
+		return
+	}
+	size, _ := writer.Write(b)
 	log("\"GET %s\" %d %d \"%s\"", query, 200, size, ua)
 	service.debugInfo.requestServed(int64(size))
 }
