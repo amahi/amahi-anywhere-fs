@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/disintegration/imaging"
 	"os"
 	"path/filepath"
@@ -37,6 +38,13 @@ func fillCache(root string) error {
 }
 
 func fillCacheWalkFunc(path string, info os.FileInfo, err error) error {
+	defer func() {
+		if v := recover(); v != nil {
+			//fmt.Println("PANIC:", v)
+			log(fmt.Sprintf("Panic while creating thumbnail: %s", v))
+		}
+	}()
+
 	if strings.Contains(path, ".fscache") {
 		return nil
 	}
