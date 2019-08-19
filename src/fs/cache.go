@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/disintegration/imaging"
 	"os"
 	"path/filepath"
@@ -37,6 +38,12 @@ func fillCache(root string) error {
 }
 
 func fillCacheWalkFunc(path string, info os.FileInfo, err error) error {
+	defer func() {
+		if v := recover(); v != nil {
+			log(fmt.Sprintf("Panic while creating thumbnail: %s", v))
+		}
+	}()
+
 	if strings.Contains(path, ".fscache") {
 		return nil
 	}
@@ -80,6 +87,9 @@ func removeCacheWalkFunc(path string, info os.FileInfo, err error) error {
 			log(`Error while deleting cache file. Error: "%s"`, err.Error())
 		}
 	}
-	watcher.Remove(path)
+	err = watcher.Remove(path)
+	if err != nil {
+		log(fmt.Sprintf("Error while removing file from watcher: %s", err))
+	}
 	return nil
 }
