@@ -87,6 +87,9 @@ func removeCacheWalkFunc(path string, info os.FileInfo, err error) error {
 			log(`Error while deleting cache file. Error: "%s"`, err.Error())
 		}
 	}
-	watcher.Remove(path)
+	err = watcher.Remove(path)
+	if err != nil {
+		log(fmt.Sprintf("Error while removing file from watcher: %s", err))
+	}
 	return nil
 }
