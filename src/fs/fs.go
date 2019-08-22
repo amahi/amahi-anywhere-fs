@@ -38,8 +38,8 @@ import (
 
 // DANGER DANGER DANGER
 // compile-time only options in case we need to disable checking the certs or https
-const DisableCertChecking = false
-const DisableHttps = false
+const DisableCertChecking = true
+const DisableHttps = true
 
 const VERSION = "2.2"
 

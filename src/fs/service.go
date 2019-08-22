@@ -123,7 +123,7 @@ func (servier *MercuryFsService) notFoundHandler(writer http.ResponseWriter, req
 	errMsg := "404 page not found"
 	writer.WriteHeader(http.StatusNotFound)
 	writer.Write([]byte(errMsg))
-	logHttp(request.Method, pathForLog(request.URL), http.StatusNotFound, len(errMsg), request.Header.Get("User-Agent"))
+	logHttp(request, http.StatusNotFound, len(errMsg))
 }
 
 //type methodNotAllowedHandler struct{}
@@ -131,7 +131,7 @@ func (service *MercuryFsService) methodNotAllowedHandler(writer http.ResponseWri
 	errMsg := "405 method not allowed"
 	writer.WriteHeader(http.StatusMethodNotAllowed)
 	writer.Write([]byte(errMsg))
-	logHttp(request.Method, pathForLog(request.URL), http.StatusMethodNotAllowed, len(errMsg), request.Header.Get("User-Agent"))
+	logHttp(request, http.StatusMethodNotAllowed, len(errMsg))
 }
 
 func (service *MercuryFsService) hdaDebug(writer http.ResponseWriter, request *http.Request) {
@@ -162,7 +162,8 @@ func (service *MercuryFsService) hdaDebug(writer http.ResponseWriter, request *h
 
 	result += "}"
 	writer.WriteHeader(200)
-	writer.Write([]byte(result))
+	size, _ := writer.Write([]byte(result))
+	logHttp(request, 200, size)
 }
 
 func directory(fi os.FileInfo, js string, w http.ResponseWriter, request *http.Request) (status, size int64) {
@@ -223,8 +224,6 @@ func (service *MercuryFsService) serveFile(writer http.ResponseWriter, request *
 	q := request.URL
 	path := q.Query().Get("p")
 	share := q.Query().Get("s")
-	ua := request.Header.Get("User-Agent")
-	query := pathForLog(request.URL)
 
 	debug(2, "serve_file GET request")
 
@@ -235,7 +234,7 @@ func (service *MercuryFsService) serveFile(writer http.ResponseWriter, request *
 		debug(2, "File not found: %s", err)
 		http.NotFound(writer, request)
 		service.debugInfo.requestServed(int64(0))
-		logHttp("GET", query, 404, 0, ua)
+		logHttp(request, 404, 0)
 		return
 	}
 	osFile, err := os.Open(fullPath)
@@ -243,7 +242,7 @@ func (service *MercuryFsService) serveFile(writer http.ResponseWriter, request *
 		debug(2, "Error opening file: %s", err.Error())
 		http.NotFound(writer, request)
 		service.debugInfo.requestServed(int64(0))
-		logHttp("GET", query, 404, 0, ua)
+		logHttp(request, 404, 0)
 		return
 	}
 	defer osFile.Close()
@@ -256,15 +255,15 @@ func (service *MercuryFsService) serveFile(writer http.ResponseWriter, request *
 		jsonDir, err := dirToJSON(osFile, fullPath, share, path)
 		if err != nil {
 			debug(2, "Error converting dir to JSON: %s", err.Error())
-			logHttp("GET", query, 404, 0, ua)
 			http.NotFound(writer, request)
 			service.debugInfo.requestServed(int64(0))
+			logHttp(request, 404, 0)
 			return
 		}
 		debug(5, "%s", jsonDir)
 		status, size := directory(fi, jsonDir, writer, request)
 		service.debugInfo.requestServed(size)
-		logHttp("GET", query, int(status), int(size), ua)
+		logHttp(request, int(status), int(size))
 		return
 	}
 
@@ -275,15 +274,15 @@ func (service *MercuryFsService) serveFile(writer http.ResponseWriter, request *
 	if inm == etag {
 		debug(4, "If-None-Match match found for %s", etag)
 		writer.WriteHeader(http.StatusNotModified)
-		logHttp("GET", query, 304, 0, ua)
+		logHttp(request, 304, 0)
 	} else {
 		writer.Header().Set("Last-Modified", mtime)
 		writer.Header().Set("ETag", etag)
 		writer.Header().Set("Cache-Control", "max-age=0, private, must-revalidate")
 		debug(4, "Etag sent: %s", etag)
 		http.ServeContent(writer, request, fullPath, fi.ModTime(), osFile)
-		logHttp("GET", query, 200, int(fi.Size()), ua)
 		service.debugInfo.requestServed(fi.Size())
+		logHttp(request, 200, int(fi.Size()))
 	}
 	return
 }
@@ -292,8 +291,6 @@ func (service *MercuryFsService) serveCache(writer http.ResponseWriter, request 
 	q := request.URL
 	path := q.Query().Get("p")
 	share := q.Query().Get("s")
-	ua := request.Header.Get("User-Agent")
-	query := pathForLog(request.URL)
 
 	debug(2, "serve_file GET request")
 
@@ -310,7 +307,7 @@ func (service *MercuryFsService) serveCache(writer http.ResponseWriter, request 
 		debug(2, "File not found: %s", err)
 		http.NotFound(writer, request)
 		service.debugInfo.requestServed(int64(0))
-		logHttp("GET", query, 404, 0, ua)
+		logHttp(request, 404, 0)
 		return
 	}
 	osFile, err := os.Open(thumbnailPath)
@@ -318,7 +315,7 @@ func (service *MercuryFsService) serveCache(writer http.ResponseWriter, request 
 		debug(2, "Error opening cache file: %s", err.Error())
 		http.NotFound(writer, request)
 		service.debugInfo.requestServed(int64(0))
-		logHttp("GET", query, 404, 0, ua)
+		logHttp(request, 404, 0)
 		return
 	}
 	defer osFile.Close()
@@ -331,7 +328,7 @@ func (service *MercuryFsService) serveCache(writer http.ResponseWriter, request 
 		debug(2, "Cache for directory not available")
 		http.NotFound(writer, request)
 		service.debugInfo.requestServed(int64(0))
-		logHttp("GET", query, 404, 0, ua)
+		logHttp(request, 404, 0)
 		return
 	}
 
@@ -342,7 +339,7 @@ func (service *MercuryFsService) serveCache(writer http.ResponseWriter, request 
 	if inm == etag {
 		debug(4, "If-None-Match match found for %s", etag)
 		writer.WriteHeader(http.StatusNotModified)
-		logHttp("GET", query, 304, 0, ua)
+		logHttp(request, 304, 0)
 	} else {
 		writer.Header().Set("Last-Modified", mtime)
 		writer.Header().Set("ETag", etag)
@@ -350,8 +347,8 @@ func (service *MercuryFsService) serveCache(writer http.ResponseWriter, request 
 		debug(4, "Etag sent: %s", etag)
 
 		http.ServeContent(writer, request, thumbnailPath, fi.ModTime(), osFile)
-		logHttp("GET", query, 200, int(fi.Size()), ua)
 		service.debugInfo.requestServed(fi.Size())
+		logHttp(request, 200, int(fi.Size()))
 	}
 
 	return
@@ -386,6 +383,7 @@ func (service *MercuryFsService) serveShares(writer http.ResponseWriter, request
 		debug(4, "If-None-Match match found for %s", etag)
 		writer.WriteHeader(http.StatusNotModified)
 		service.debugInfo.requestServed(int64(0))
+		logHttp(request, http.StatusNotModified, 0)
 	} else {
 		debug(4, "If-None-Match (%s) match NOT found for Etag %s", inm, etag)
 		size := int64(len(json))
@@ -397,6 +395,7 @@ func (service *MercuryFsService) serveShares(writer http.ResponseWriter, request
 		writer.WriteHeader(http.StatusOK)
 		writer.Write([]byte(json))
 		service.debugInfo.requestServed(size)
+		logHttp(request, http.StatusOK, int(size))
 	}
 }
 
@@ -516,21 +515,19 @@ func (service *MercuryFsService) appsList(writer http.ResponseWriter, request *h
 func (service *MercuryFsService) getMetadata(writer http.ResponseWriter, request *http.Request) {
 	// get the filename and the hint
 	q := request.URL
-	ua := request.Header.Get("User-Agent")
-	query := pathForLog(request.URL)
 
 	filename, err := url.QueryUnescape(q.Query().Get("f"))
 	if err != nil {
 		debug(3, "get_metadata error parsing file: %s", err)
 		http.NotFound(writer, request)
-		logHttp("GET", query, 404, 0, ua)
+		logHttp(request, 404, 0)
 		return
 	}
 	hint, err := url.QueryUnescape(q.Query().Get("h"))
 	if err != nil {
 		debug(3, "get_metadata error parsing hint: %s", err)
 		http.NotFound(writer, request)
-		logHttp("GET", query, 404, 0, ua)
+		logHttp(request, 404, 0)
 		return
 	}
 	debug(5, "metadata filename: %s", filename)
@@ -540,7 +537,7 @@ func (service *MercuryFsService) getMetadata(writer http.ResponseWriter, request
 	if err != nil {
 		debug(3, "metadata error: %s", err)
 		http.NotFound(writer, request)
-		logHttp("GET", query, 404, 0, ua)
+		logHttp(request, 404, 0)
 		return
 	}
 	debug(5, "========= DEBUG get_metadata request: %d", len(service.Shares.Shares))
@@ -551,6 +548,7 @@ func (service *MercuryFsService) getMetadata(writer http.ResponseWriter, request
 		debug(4, "If-None-Match match found for %s", etag)
 		writer.WriteHeader(http.StatusNotModified)
 		service.debugInfo.requestServed(int64(0))
+		logHttp(request, http.StatusUnauthorized, 0)
 	} else {
 		debug(4, "If-None-Match (%s) match NOT found for Etag %s", inm, etag)
 		size := int64(len(json))
@@ -561,6 +559,7 @@ func (service *MercuryFsService) getMetadata(writer http.ResponseWriter, request
 		writer.WriteHeader(http.StatusOK)
 		writer.Write([]byte(json))
 		service.debugInfo.requestServed(size)
+		logHttp(request, http.StatusOK, int(size))
 	}
 }
 
@@ -633,8 +632,6 @@ func (service *MercuryFsService) deleteFile(writer http.ResponseWriter, request 
 	q := request.URL
 	path := q.Query().Get("p")
 	share := q.Query().Get("s")
-	ua := request.Header.Get("User-Agent")
-	query := pathForLog(request.URL)
 
 	debug(2, "deleteFile DELETE request")
 
@@ -648,7 +645,7 @@ func (service *MercuryFsService) deleteFile(writer http.ResponseWriter, request 
 			debug(2, "File not found: %s", err)
 			http.NotFound(writer, request)
 			service.debugInfo.requestServed(int64(0))
-			logHttp("GET", query, 404, 0, ua)
+			logHttp(request, 404, 0)
 			return
 		}
 		err = os.Remove(fullPath)
@@ -656,7 +653,7 @@ func (service *MercuryFsService) deleteFile(writer http.ResponseWriter, request 
 			debug(2, "Error removing file: %s", err.Error())
 			writer.WriteHeader(http.StatusExpectationFailed)
 			service.debugInfo.requestServed(int64(0))
-			logHttp("GET", query, 417, 0, ua)
+			logHttp(request, 417, 0)
 			return
 		}
 	} else {
@@ -664,6 +661,7 @@ func (service *MercuryFsService) deleteFile(writer http.ResponseWriter, request 
 	}
 
 	writer.WriteHeader(http.StatusOK)
+	logHttp(request, http.StatusOK, 0)
 
 	return
 }
@@ -673,8 +671,6 @@ func (service *MercuryFsService) uploadFile(writer http.ResponseWriter, request 
 	q := request.URL
 	path := q.Query().Get("p")
 	share := q.Query().Get("s")
-	ua := request.Header.Get("User-Agent")
-	query := pathForLog(request.URL)
 
 	debug(2, "upload_file POST request")
 
@@ -701,7 +697,7 @@ func (service *MercuryFsService) uploadFile(writer http.ResponseWriter, request 
 			debug(2, "Error parsing image: %s", err.Error())
 			writer.WriteHeader(http.StatusPreconditionFailed)
 			service.debugInfo.requestServed(int64(0))
-			logHttp("GET", query, 412, 0, ua)
+			logHttp(request, 412, 0)
 			return
 		}
 
@@ -711,7 +707,7 @@ func (service *MercuryFsService) uploadFile(writer http.ResponseWriter, request 
 			debug(2, "Error finding uploaded file: %s", err.Error())
 			writer.WriteHeader(http.StatusExpectationFailed)
 			service.debugInfo.requestServed(int64(0))
-			logHttp("GET", query, 417, 0, ua)
+			logHttp(request, 417, 0)
 			return
 		}
 		defer file.Close()
@@ -722,7 +718,7 @@ func (service *MercuryFsService) uploadFile(writer http.ResponseWriter, request 
 			debug(2, "invalid filename")
 			writer.WriteHeader(http.StatusUnsupportedMediaType)
 			service.debugInfo.requestServed(int64(0))
-			logHttp("GET", query, 415, 0, ua)
+			logHttp(request, 415, 0)
 			return
 		}
 
@@ -744,7 +740,7 @@ func (service *MercuryFsService) uploadFile(writer http.ResponseWriter, request 
 			debug(2, "Error creating uploaded file: %s", err.Error())
 			writer.WriteHeader(http.StatusServiceUnavailable)
 			service.debugInfo.requestServed(int64(0))
-			logHttp("POST", query, 503, 0, ua)
+			logHttp(request, 503, 0)
 			return
 		} // status == FILE_SAME_MD5, ignore it
 
@@ -758,6 +754,7 @@ func (service *MercuryFsService) uploadFile(writer http.ResponseWriter, request 
 	}
 
 	writer.WriteHeader(http.StatusOK)
+	logHttp(request, 200, 0)
 
 	return
 }
@@ -766,8 +763,6 @@ func (service *MercuryFsService) serveLogs(writer http.ResponseWriter, request *
 	// TODO: add log serving API similar to PFE
 	q := request.URL
 	amt := q.Query().Get("mode")
-	ua := request.Header.Get("User-Agent")
-	query := pathForLog(request.URL)
 
 	mode := 100 // determines the numbers of lines to serve (from last). -1 will cause serving complete log file
 
@@ -784,7 +779,7 @@ func (service *MercuryFsService) serveLogs(writer http.ResponseWriter, request *
 		debug(2, "Error opening log file: %s", err.Error())
 		http.NotFound(writer, request)
 		service.debugInfo.requestServed(int64(0))
-		logHttp("GET", query, 404, 0, ua)
+		logHttp(request, 404, 0)
 		return
 	}
 	defer osFile.Close()
@@ -792,13 +787,13 @@ func (service *MercuryFsService) serveLogs(writer http.ResponseWriter, request *
 	fi, _ := osFile.Stat()
 	if mode == -1 {
 		http.ServeContent(writer, request, osFile.Name(), fi.ModTime(), osFile)
-		logHttp("GET", query, 200, int(fi.Size()), ua)
+		logHttp(request, 200, int(fi.Size()))
 	} else {
 		data, err := Tail(mode)
 		if err != nil {
 			writer.WriteHeader(http.StatusNotFound)
 		}
 		size, _ := writer.Write(data)
-		logHttp("GET", query, 200, size, ua)
+		logHttp(request, 200, size)
 	}
 }
