@@ -76,14 +76,20 @@ func logPanic(f string, args ...interface{}) {
 	log.Panic(msg)
 }
 
-//func logHttp(method, endpoint string, responseCode, responseSize int, ua string) {
-//	//having a separate method for logging will help easily modify the log statements if required
-//	logInfo("\"%s %s\" %d %d \"%s\"", method, endpoint, responseCode, responseSize, ua)
-//}
-
-func logHttp(r *http.Request, responseCode,responseSize int) {
+func logHttp(service *MercuryFsService, r *http.Request, responseCode,responseSize int) {
 	//having a separate method for logging will help easily modify the log statements if required
-	logInfo("\"%s %s\" %d %d \"%s\"", r.Method, pathForLog(r.URL), responseCode, responseSize, r.Header.Get("User-Agent"))
+
+	var origin string
+	switch r.Host {
+	case service.info.local_addr:
+		origin = "local"
+	case service.info.relay_addr:
+		origin = "remote"
+	default:
+		origin = "unknown"
+	}
+
+	logInfo("\"%s %s\" %d %d \"%s\" origin:%s", r.Method, pathForLog(r.URL), responseCode, responseSize, r.Header.Get("User-Agent"), origin)
 }
 
 func debug(level int, f string, args ...interface{}) {
