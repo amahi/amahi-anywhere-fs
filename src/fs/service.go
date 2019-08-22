@@ -81,6 +81,9 @@ func NewMercuryFSService(rootDir, localAddr string, isDemo bool) (service *Mercu
 	apiRouter.HandleFunc("/hda_debug", service.hdaDebug).Methods("GET")
 	apiRouter.HandleFunc("/logs", service.serveLogs).Methods("GET")
 
+	apiRouter.MethodNotAllowedHandler = http.HandlerFunc(service.methodNotAllowedHandler)
+	apiRouter.NotFoundHandler = http.HandlerFunc(service.notFoundHandler)
+
 	service.apiRouter = apiRouter
 
 	serveMux := http.NewServeMux()
@@ -113,6 +116,22 @@ func NewMercuryFSService(rootDir, localAddr string, isDemo bool) (service *Mercu
 func (service *MercuryFsService) String() string {
 	// TODO: Possibly change this to present a more formatted string
 	return SharesJson(service.Shares.Shares)
+}
+
+//type notFoundHandler struct {}
+func (servier *MercuryFsService) notFoundHandler(writer http.ResponseWriter, request *http.Request) {
+	errMsg := "404 page not found"
+	writer.WriteHeader(http.StatusNotFound)
+	writer.Write([]byte(errMsg))
+	logHttp(request.Method, pathForLog(request.URL), http.StatusNotFound, len(errMsg), request.Header.Get("User-Agent"))
+}
+
+//type methodNotAllowedHandler struct{}
+func (service *MercuryFsService) methodNotAllowedHandler(writer http.ResponseWriter, request *http.Request) {
+	errMsg := "405 method not allowed"
+	writer.WriteHeader(http.StatusMethodNotAllowed)
+	writer.Write([]byte(errMsg))
+	logHttp(request.Method, pathForLog(request.URL), http.StatusMethodNotAllowed, len(errMsg), request.Header.Get("User-Agent"))
 }
 
 func (service *MercuryFsService) hdaDebug(writer http.ResponseWriter, request *http.Request) {
@@ -775,9 +794,11 @@ func (service *MercuryFsService) serveLogs(writer http.ResponseWriter, request *
 		http.ServeContent(writer, request, osFile.Name(), fi.ModTime(), osFile)
 		logHttp("GET", query, 200, int(fi.Size()), ua)
 	} else {
-		// TODO: add log number to the log file. Make use of bufio.Scanner to readlines. Make use of binary search
-		// to find the appropriate line number.
-		http.ServeContent(writer, request, osFile.Name(), fi.ModTime(), osFile)
-		logHttp("GET", query, 200, int(fi.Size()), ua)
+		data, err := Tail(mode)
+		if err != nil {
+			writer.WriteHeader(http.StatusNotFound)
+		}
+		size, _ := writer.Write(data)
+		logHttp("GET", query, 200, size, ua)
 	}
 }

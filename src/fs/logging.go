@@ -15,8 +15,7 @@ import (
 	"os"
 )
 
-//const LOGFILE = "/var/log/amahi-anywhere.log"
-const LOGFILE = "temp_log.log"
+const LOGFILE = "/var/log/amahi-anywhere.log"
 
 func initializeLogging() {
 	logFile, err := os.OpenFile(LOGFILE, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -26,7 +25,7 @@ func initializeLogging() {
 	}
 
 	Formatter := new(log.TextFormatter)
-	Formatter.TimestampFormat = "02-01-2006 15:04:05"
+	Formatter.TimestampFormat = "02-01-2006 15:04:05.000"
 	Formatter.FullTimestamp = true
 	Formatter.DisableColors = true
 	log.SetFormatter(Formatter)
