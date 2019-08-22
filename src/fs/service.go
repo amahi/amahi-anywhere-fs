@@ -762,7 +762,6 @@ func (service *MercuryFsService) uploadFile(writer http.ResponseWriter, request 
 }
 
 func (service *MercuryFsService) serveLogs(writer http.ResponseWriter, request *http.Request) {
-	// TODO: add log serving API similar to PFE
 	q := request.URL
 	amt := q.Query().Get("mode")
 

@@ -117,16 +117,14 @@ func main() {
 
 	meta, err := metadata.Init(100000, METADATA_FILE, TMDB_API_KEY, TVRAGE_API_KEY, TVDB_API_KEY)
 	if err != nil {
-		// TODO: remove logFatal or register exitHandler
-		logFatal("Error initializing metadata library")
+		fmt.Println("Error initializing metadata library")
 		os.Remove(PID_FILE)
 		os.Exit(1)
 	}
 
 	service, err := NewMercuryFSService(rootDir, localAddr, isDemo)
 	if err != nil {
-		// TODO: remove logFatal or register exitHandler
-		logFatal("Error making service (%s, %s): %s\n", rootDir, localAddr, err.Error())
+		fmt.Printf("Error making service (%s, %s): %s\n", rootDir, localAddr, err.Error())
 		os.Remove(PID_FILE)
 		os.Exit(1)
 	}
@@ -251,26 +249,14 @@ func contactPfe(relayHost, relayPort, apiKey string, service *MercuryFsService) 
 // Clean up and quit
 func cleanQuit(exitCode int, message string) {
 	fmt.Println("FATAL:", message)
-	// TODO: add fatal log statement with proper exit code handling etc.
-	//logFatal(message)
+	log.Println("FATAL:", message)
 	os.Exit(exitCode)
 }
 
 func panicHandler() {
 	if v := recover(); v != nil {
 		fmt.Println("PANIC:", v)
-		// TODO: uncomment below and add proper handling of logPanic
-		//if r := recover(); r != nil {
-		//	var errStr string
-		//	switch t := r.(type) {
-		//	case error:
-		//		errStr = t.Error()
-		//	default:
-		//		errStr = "Error in mapping. Can't process the error"
-		//	}
-		//	logPanic(errStr)
-		//	os.Remove(PID_FILE)
-		//	os.Exit(1)
+		log.Println("PANIC:", v)
 	}
 	os.Remove(PID_FILE)
 }
@@ -283,9 +269,8 @@ func setup() error {
 	signal.Notify(c, os.Interrupt)
 	go func() {
 		for sig := range c {
+			fmt.Printf("Exiting with %v", sig)
 			log.Printf("Exiting with %v", sig)
-			// TODO: handle logFatal
-			//logFatal("Exiting with %v", sig)
 			os.Remove(PID_FILE)
 			os.Exit(1)
 		}
