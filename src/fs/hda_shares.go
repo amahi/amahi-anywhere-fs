@@ -57,20 +57,14 @@ func (shares *HdaShares) updateShares() error {
 func (shares *HdaShares) updateSqlShares() error {
 	dbconn, err := sql.Open("mysql", MYSQL_CREDENTIALS)
 	if err != nil {
-		//log(err.Error())
-		//log2.Info(err.Error())
 		logError(err.Error())
 		return err
 	}
 	defer dbconn.Close()
 	q := SQL_SELECT_SHARES
-	//debug(5, "share query: %s\n", q)
-	//log2.Debug(fmt.Sprintf("share query: %s\n", q))
-	logDebug("share query: %s\n", q)
+	debug(5, "share query: %s\n", q)
 	rows, err := dbconn.Query(q)
 	if err != nil {
-		//log(err.Error())
-		//log2.Info(err.Error())
 		logError(err.Error())
 		return err
 	}
@@ -78,9 +72,7 @@ func (shares *HdaShares) updateSqlShares() error {
 	for rows.Next() {
 		share := new(HdaShare)
 		rows.Scan(&share.name, &share.updatedAt, &share.path, &share.tags)
-		//debug(5, "share found: %s\n", share.name)
-		//log2.Debug(fmt.Sprintf("share found: %s\n", share.name))
-		logDebug("share found: %s\n", share.name)
+		debug(5, "share found: %s\n", share.name)
 		newShares = append(newShares, share)
 	}
 
@@ -96,8 +88,6 @@ func (shares *HdaShares) updateDirShares() (nil error) {
 
 	dir, err := os.Open(shares.rootDir)
 	if err != nil {
-		//log(err.Error())
-		//log2.Info(err.Error())
 		logError(err.Error())
 		return err
 	}
@@ -193,9 +183,7 @@ func (shares *HdaShares) startMetadataPrefill(library *metadata.Library) {
 	for i := range shares.Shares {
 		path := shares.Shares[i].path
 		tags := strings.ToLower(shares.Shares[i].tags)
-		//debug(5, `checking share "%s" (%s)  with tags: %s\n`, shares.Shares[i].name, path, tags)
-		//log2.Debug(fmt.Sprintf(`checking share "%s" (%s)  with tags: %s\n`, shares.Shares[i].name, path, tags))
-		logDebug(`checking share "%s" (%s)  with tags: %s\n`, shares.Shares[i].name, path, tags)
+		debug(5, `checking share "%s" (%s)  with tags: %s\n`, shares.Shares[i].name, path, tags)
 		if path == "" || tags == "" {
 			continue
 		}
@@ -204,5 +192,39 @@ func (shares *HdaShares) startMetadataPrefill(library *metadata.Library) {
 		} else if strings.Contains(tags, "tv") {
 			library.Prefill(path, "tv", 0, true)
 		}
+	}
+}
+
+func (shares *HdaShares) createThumbnailCache() {
+	time.Sleep(2 * time.Second)
+	go func() {
+		for {
+			select {
+			// watch for events
+			case event := <-watcher.Events:
+				op := event.Op.String()
+				logInfo("FSNOTIFY EVENT: `%s`, NAME: `%s`", op, event.Name)
+				switch {
+				case op == "CREATE" || op == "WRITE":
+					fillCache(event.Name)
+				case op == "REMOVE" || op == "RENAME":
+					removeCache(event.Name)
+				}
+
+				// watch for errors
+			case err := <-watcher.Errors:
+				fmt.Println("ERROR", err)
+			}
+		}
+	}()
+
+	logInfo("Starting caching")
+	for i := range shares.Shares {
+		// get path of the shares
+		path := shares.Shares[i].path
+		if path == "" {
+			continue
+		}
+		fillCache(path)
 	}
 }

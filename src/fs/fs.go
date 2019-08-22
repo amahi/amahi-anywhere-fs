@@ -11,13 +11,15 @@ package main
 
 import (
 	"crypto/tls"
+	"github.com/fsnotify/fsnotify"
+
 	// this is required for the side effect that it will register sha384/512 algorithms.
 	// should not be needed in the future https://codereview.appspot.com/87670045/
 	_ "crypto/sha512"
 	"errors"
 	"flag"
 	"fmt"
-	log2 "github.com/Sirupsen/logrus"
+	log "github.com/Sirupsen/logrus"
 	"github.com/amahi/go-metadata"
 	"golang.org/x/net/http2"
 	"hda_api_key"
@@ -43,6 +45,9 @@ const VERSION = "2.2"
 
 var noDelete = false
 var noUpload = false
+
+// watcher for watching changes in files
+var watcher *fsnotify.Watcher
 
 // profiling info
 // func init() { go func() { http.ListenAndServe(":4242", nil) }() }
@@ -97,12 +102,14 @@ func main() {
 		return
 	}
 
-	setLogLevel(log2.Level(dbg))
+	setLogLevel(log.Level(dbg))
 
 	if noDelete {
+		fmt.Println("Running without deleting content!")
 		logWarn("Running without deleting content!")
 	}
 	if noUpload {
+		fmt.Println("Running without uploading content!")
 		logWarn("Running without uploading content!")
 	}
 
@@ -110,6 +117,7 @@ func main() {
 
 	meta, err := metadata.Init(100000, METADATA_FILE, TMDB_API_KEY, TVRAGE_API_KEY, TVDB_API_KEY)
 	if err != nil {
+		// TODO: remove logFatal or register exitHandler
 		logFatal("Error initializing metadata library")
 		os.Remove(PID_FILE)
 		os.Exit(1)
@@ -117,6 +125,7 @@ func main() {
 
 	service, err := NewMercuryFSService(rootDir, localAddr, isDemo)
 	if err != nil {
+		// TODO: remove logFatal or register exitHandler
 		logFatal("Error making service (%s, %s): %s\n", rootDir, localAddr, err.Error())
 		os.Remove(PID_FILE)
 		os.Exit(1)
@@ -126,8 +135,13 @@ func main() {
 
 	go service.Shares.startMetadataPrefill(meta)
 
+	watcher, _ = fsnotify.NewWatcher()
+	defer watcher.Close()
+
+	go service.Shares.createThumbnailCache()
+
 	logInfo("Amahi Anywhere service v%s", VERSION)
-	logInfo("using api-key %s", apiKey)
+	debug(4, "using api-key %s", apiKey)
 
 	if http2Debug {
 		http2.VerboseLogs = true
@@ -193,14 +207,14 @@ func contactPfe(relayHost, relayPort, apiKey string, service *MercuryFsService) 
 	buf := strings.NewReader(service.info.to_json())
 	request, err := http.NewRequest("PUT", "https://"+relayLocation+"/fs", buf)
 	if err != nil {
-		logError("Error creating NewRequest:", err)
+		debug(2, "Error creating NewRequest:", err)
 		return nil, err
 	}
 
 	request.Header.Add("Api-Key", apiKey)
 	request.Header.Add("Authorization", fmt.Sprintf("Token %s", SECRET_TOKEN))
 	rawRequest, _ := httputil.DumpRequest(request, true)
-	logDebug("Raw API-key request: %s", rawRequest)
+	debug(5, "Raw API-key request: %s", rawRequest)
 
 	var client *httputil.ClientConn
 
@@ -217,7 +231,7 @@ func contactPfe(relayHost, relayPort, apiKey string, service *MercuryFsService) 
 
 	response, err := client.Do(request)
 	if err != nil {
-		logError("Error writing to connection with Do: %s", err)
+		debug(2, "Error writing to connection with Do: %s", err)
 		return nil, err
 	}
 
@@ -236,23 +250,27 @@ func contactPfe(relayHost, relayPort, apiKey string, service *MercuryFsService) 
 
 // Clean up and quit
 func cleanQuit(exitCode int, message string) {
-	//fmt.Println("FATAL:", message)
-	logFatal(message)
+	fmt.Println("FATAL:", message)
+	// TODO: add fatal log statement with proper exit code handling etc.
+	//logFatal(message)
 	os.Exit(exitCode)
 }
 
 func panicHandler() {
-	if r := recover(); r != nil {
-		var errStr string
-		switch t := r.(type) {
-		case error:
-			errStr = t.Error()
-		default:
-			errStr = "Error in mapping. Can't process the error"
-		}
-		logPanic(errStr)
-		os.Remove(PID_FILE)
-		os.Exit(1)
+	if v := recover(); v != nil {
+		fmt.Println("PANIC:", v)
+		// TODO: uncomment below and add proper handling of logPanic
+		//if r := recover(); r != nil {
+		//	var errStr string
+		//	switch t := r.(type) {
+		//	case error:
+		//		errStr = t.Error()
+		//	default:
+		//		errStr = "Error in mapping. Can't process the error"
+		//	}
+		//	logPanic(errStr)
+		//	os.Remove(PID_FILE)
+		//	os.Exit(1)
 	}
 	os.Remove(PID_FILE)
 }
@@ -265,7 +283,9 @@ func setup() error {
 	signal.Notify(c, os.Interrupt)
 	go func() {
 		for sig := range c {
-			logFatal("Exiting with %v", sig)
+			log.Printf("Exiting with %v", sig)
+			// TODO: handle logFatal
+			//logFatal("Exiting with %v", sig)
 			os.Remove(PID_FILE)
 			os.Exit(1)
 		}
@@ -287,7 +307,7 @@ func checkPidFile() {
 		c, err := f.Read(pid)
 		if err == nil {
 			v, _ := strconv.Atoi(string(pid[:c]))
-			logInfo("PID: %#v\n", v)
+			fmt.Printf("PID: %#v\n", v)
 			if !exists(fmt.Sprintf("/proc/%s/stat", string(pid[:c]))) {
 				// the process does not exist. pid file is stale
 				// note: this works on systems with /proc/
@@ -297,9 +317,9 @@ func checkPidFile() {
 		}
 	}
 	if stale {
-		logInfo("PID file exists, but it's stale. Continuing.")
+		fmt.Println("PID file exists, but it's stale. Continuing.")
 	} else {
-		logFatal("PID file exists and process is running. Exiting.")
+		fmt.Println("PID file exists and process is running. Exiting.")
 		os.Exit(1)
 	}
 }

@@ -11,7 +11,7 @@ package main
 
 import (
 	"fmt"
-	log2 "github.com/Sirupsen/logrus"
+	log "github.com/Sirupsen/logrus"
 	"os"
 )
 
@@ -25,58 +25,67 @@ func initializeLogging() {
 		logFile = os.Stdout
 	}
 
-	Formatter := new(log2.TextFormatter)
+	Formatter := new(log.TextFormatter)
 	Formatter.TimestampFormat = "02-01-2006 15:04:05"
 	Formatter.FullTimestamp = true
 	Formatter.DisableColors = true
-	log2.SetFormatter(Formatter)
-	log2.SetOutput(logFile)
+	log.SetFormatter(Formatter)
+	log.SetOutput(logFile)
 }
 
-func setLogLevel(level log2.Level) {
-	log2.SetLevel(level)
+func setLogLevel(level log.Level) {
+	log.SetLevel(level)
 }
 
-func getLogLevel() log2.Level {
-	return log2.GetLevel()
+func getLogLevel() log.Level {
+	return log.GetLevel()
 }
 
 func logTrace(f string, args ...interface{}) {
 	msg := fmt.Sprintf(f, args...)
-	log2.Trace(msg)
+	log.Trace(msg)
 }
 
 func logDebug(f string, args ...interface{}) {
 	msg := fmt.Sprintf(f, args...)
-	log2.Debug(msg)
+	log.Debug(msg)
 }
 
 func logInfo(f string, args ...interface{}) {
 	msg := fmt.Sprintf(f, args...)
-	log2.Info(msg)
+	log.Info(msg)
 }
 
 func logWarn(f string, args ...interface{}) {
 	msg := fmt.Sprintf(f, args...)
-	log2.Warn(msg)
+	log.Warn(msg)
 }
 
 func logError(f string, args ...interface{}) {
 	msg := fmt.Sprintf(f, args...)
-	log2.Error(msg)
+	log.Error(msg)
 }
 
 func logFatal(f string, args ...interface{}) {
 	msg := fmt.Sprintf(f, args...)
-	log2.Fatal(msg)
+	log.Fatal(msg)
 }
 
 func logPanic(f string, args ...interface{}) {
 	msg := fmt.Sprintf(f, args...)
-	log2.Panic(msg)
+	log.Panic(msg)
 }
 
 func logHttp(method, endpoint string, responseCode, responseSize int, ua string) {
 	//having a separate method for logging will help easily modify the log statements if required
 	logInfo("\"%s %s\" %d %d \"%s\"", method, endpoint, responseCode, responseSize, ua)
+}
+
+func debug(level int, f string, args ...interface{}) {
+	if PRODUCTION {
+		return
+	}
+	if level <= int(getLogLevel()) {
+		logDebug(f, args...)
+	}
 }

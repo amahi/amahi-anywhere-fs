@@ -25,6 +25,14 @@ type fileInfo struct {
 	mimeType string
 	mtime    time.Time
 	size     int64
+	cache    fileCacheInfo
+}
+
+type fileCacheInfo struct {
+	status   bool
+	mtime    time.Time
+	size     int64
+	endpoint string
 }
 
 type fileSorter struct {
@@ -46,13 +54,53 @@ func (fi *fileSorter) Less(i, j int) bool {
 	return strings.ToLower(fi.files[i].name) < strings.ToLower(fi.files[j].name)
 }
 
-func (f *fileInfo) toJson() string {
-	name, _ := json.Marshal(f.name)
-	return fmt.Sprintf(`{"name": %s, "mime_type": "%s", "mtime": "%s", "size": %d}`,
-		string(name), f.mimeType, f.mtime.Format(http.TimeFormat), f.size)
+func (f *fileCacheInfo) invalidateCache() {
+	f.status = false
+	f.size = 0
+	f.mtime = time.Time{}
+	f.endpoint = ""
 }
 
-func directoryFileInfos(fis []os.FileInfo, fullPath string) []fileInfo {
+func (f *fileCacheInfo) fillCache(filePath, share, path string) {
+	parentDir := filepath.Dir(filePath)
+	filename := filepath.Base(filePath)
+
+	thumbnailDirPath := filepath.Join(parentDir, ".fscache/thumbnails")
+	thumbnailPath := filepath.Join(thumbnailDirPath, filename)
+	thumbnailInfo, err := os.Stat(thumbnailPath)
+	if os.IsNotExist(err) {
+		f.status = false
+	} else {
+		f.status = true
+		f.size = thumbnailInfo.Size()
+		f.mtime = thumbnailInfo.ModTime()
+		if len(path) == 0 {
+			path = "/"
+		}
+		path := filepath.Join(path, filename)
+		f.endpoint = fmt.Sprintf(`/cache?s=%s&p=%s`, share, path)
+		if err != nil {
+			f.invalidateCache()
+		}
+	}
+}
+
+func (f *fileCacheInfo) toJson() string {
+	if f.status {
+		return fmt.Sprintf(`{"status": %t, "mtime": "%s", "size": %d, "endpoint": "%s"}`,
+			f.status, f.mtime.Format(http.TimeFormat), f.size, f.endpoint)
+	} else {
+		return fmt.Sprintf(`{"status":%t}`, f.status)
+	}
+}
+
+func (f *fileInfo) toJson() string {
+	name, _ := json.Marshal(f.name)
+	return fmt.Sprintf(`{"name": %s, "mime_type": "%s", "mtime": "%s", "size": %d, "cache": %s}`,
+		string(name), f.mimeType, f.mtime.Format(http.TimeFormat), f.size, f.cache.toJson())
+}
+
+func directoryFileInfos(fis []os.FileInfo, fullPath, share, path string) []fileInfo {
 	fileInfos := make([]fileInfo, 0)
 	for i := range fis {
 		if fis[i].Name()[0] == '.' {
@@ -62,6 +110,7 @@ func directoryFileInfos(fis []os.FileInfo, fullPath string) []fileInfo {
 			name:  fis[i].Name(),
 			mtime: fis[i].ModTime(),
 		}
+		fileInfo.cache.fillCache(filepath.Join(fullPath, fis[i].Name()), share, path)
 		if fis[i].IsDir() || isSymlinkDir(fis[i], fullPath) {
 			fileInfo.mimeType = "text/directory"
 			fileInfo.size = 0
@@ -79,13 +128,13 @@ func directoryFileInfos(fis []os.FileInfo, fullPath string) []fileInfo {
 	return fileInfos
 }
 
-func dirToJSON(osFile *os.File, fullPath string) (string, error) {
+func dirToJSON(osFile *os.File, fullPath, share, path string) (string, error) {
 	fis, err := osFile.Readdir(0)
 	if err != nil {
 		return "", err
 	}
 
-	fileInfos := directoryFileInfos(fis, fullPath)
+	fileInfos := directoryFileInfos(fis, fullPath, share, path)
 
 	if len(fileInfos) == 0 {
 		return "[]", nil
@@ -173,7 +222,7 @@ func getContentType(fileName string) string {
 		".ppsm": "application/vnd.ms-powerpoint.slideshow.macroEnabled.12",
 		".html": "text/html",
 		".htm":  "text/html",
-		".csv": "text/csv",
+		".csv":  "text/csv",
 		// subtitle stuff, with others below
 		".srt": "application/x-subrip",
 		".sub": "text/vnd.dvb.subtitle",

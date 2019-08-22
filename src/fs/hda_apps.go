@@ -37,9 +37,6 @@ func newHdaApps() (*HdaApps, error) {
 func (apps *HdaApps) list() error {
 	dbconn, err := sql.Open("mysql", MYSQL_CREDENTIALS)
 	if err != nil {
-		//log(err.Error())
-		//TODO: to check with mentors about the debug level of these type of errors. Currently assigning INFO
-		//log2.Info(err.Error())
 		logError(err.Error())
 		return err
 	}
@@ -47,8 +44,6 @@ func (apps *HdaApps) list() error {
 	q := SQL_SELECT_APPS
 	rows, err := dbconn.Query(q)
 	if err != nil {
-		//log(err.Error())
-		//log2.Info(err.Error())
 		logError(err.Error())
 		return err
 	}

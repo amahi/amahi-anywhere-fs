@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 func use(h http.HandlerFunc, middleware ...func(http.HandlerFunc) http.HandlerFunc) http.HandlerFunc {
@@ -49,15 +50,11 @@ func (service *MercuryFsService) authenticate(writer http.ResponseWriter, reques
 	authToken, err := service.Users.queryUser(pin)
 	switch {
 	case err == sql.ErrNoRows: // if no such user exits, send 401 Unauthorized
-		//log("No user with pin: %s", pin)
-		//log2.Info(fmt.Sprintf("No user with pin: %s", pin))
 		logInfo("No user with pin: %s", pin)
 		http.Error(writer, "Authentication Failed", http.StatusUnauthorized)
 		break
 	case err != nil: // if some other error, send 500 Internal Server Error
 		http.Error(writer, "Internal Server Error", http.StatusInternalServerError)
-		//log(err.Error())
-		//log2.Info(err.Error())
 		logError(err.Error())
 		break
 	default: // if no error, send proper auth token for that user
@@ -126,6 +123,21 @@ func (service *MercuryFsService) shareReadAccess(pass http.HandlerFunc) http.Han
 			}
 			pass(w, r)
 		}
+	}
+}
+
+func (service *MercuryFsService) restrictCache(pass http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		share := r.URL.Query().Get("s")
+		path := r.URL.Query().Get("p")
+		fullPath, _ := service.fullPathToFile(share, path)
+
+		if strings.Contains(fullPath, ".fscache") {
+			http.Error(w, "Cannot access cache via /files", http.StatusForbidden)
+			return
+		}
+
+		pass(w, r)
 	}
 }
 
