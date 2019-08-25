@@ -37,6 +37,7 @@ func (service *MercuryFsService) authenticate(writer http.ResponseWriter, reques
 	err := decoder.Decode(&data)
 	if err != nil {
 		writer.WriteHeader(http.StatusBadRequest)
+		logHttp(service, request, http.StatusBadRequest, 0)
 		return
 	}
 	// read pin from the json body
@@ -44,18 +45,23 @@ func (service *MercuryFsService) authenticate(writer http.ResponseWriter, reques
 	if !ok {
 		// pin is not a string, send 400 Bad Request
 		writer.WriteHeader(http.StatusBadRequest)
+		logHttp(service, request, http.StatusBadRequest, 0)
 		return
 	}
 	// query user for the given pin from the list of all users
 	authToken, err := service.Users.queryUser(pin)
 	switch {
 	case err == sql.ErrNoRows: // if no such user exits, send 401 Unauthorized
-		log("No user with pin: %s", pin)
-		http.Error(writer, "Authentication Failed", http.StatusUnauthorized)
+		logInfo("No user with pin: %s", pin)
+		errMsg := "Authentication Failed"
+		http.Error(writer, errMsg, http.StatusUnauthorized)
+		logHttp(service, request, http.StatusUnauthorized, len(errMsg))
 		break
 	case err != nil: // if some other error, send 500 Internal Server Error
-		http.Error(writer, "Internal Server Error", http.StatusInternalServerError)
-		log(err.Error())
+		logError(err.Error())
+		errMsg := "Internal Server Error"
+		http.Error(writer, errMsg, http.StatusInternalServerError)
+		logHttp(service, request, http.StatusInternalServerError, len(errMsg))
 		break
 	default: // if no error, send proper auth token for that user
 		respJson := fmt.Sprintf("{\"auth_token\": \"%s\"}", *authToken)
@@ -64,13 +70,15 @@ func (service *MercuryFsService) authenticate(writer http.ResponseWriter, reques
 		writer.Header().Set("Content-Length", strconv.FormatInt(size, 10))
 		writer.Header().Set("Content-Type", "application/json")
 		writer.Write([]byte(respJson))
+		logHttp(service, request, http.StatusOK, int(size))
 	}
 }
 
-func (service *MercuryFsService) logout(w http.ResponseWriter, r *http.Request) {
-	authToken := parseAuthToken(r)
+func (service *MercuryFsService) logout(writer http.ResponseWriter, request *http.Request) {
+	authToken := parseAuthToken(request)
 	service.Users.remove(authToken)
-	w.WriteHeader(http.StatusOK)
+	writer.WriteHeader(http.StatusOK)
+	logHttp(service, request, http.StatusOK, 0)
 }
 
 func (service *MercuryFsService) checkAuthHeader(w http.ResponseWriter, r *http.Request) (user *HdaUser) {
@@ -78,9 +86,11 @@ func (service *MercuryFsService) checkAuthHeader(w http.ResponseWriter, r *http.
 	user = service.Users.find(authToken)
 	// if user is nil, respond with 401 Unauthorized
 	if user == nil {
-		http.Error(w, "Authentication Failed", http.StatusUnauthorized)
+		errMsg := "Authentication Failed"
+		http.Error(w, errMsg, http.StatusUnauthorized)
+		logHttp(service, r, http.StatusUnauthorized, len(errMsg))
 	}
-	return
+	return user
 }
 
 func (service *MercuryFsService) authMiddleware(pass http.HandlerFunc) http.HandlerFunc {
@@ -115,9 +125,13 @@ func (service *MercuryFsService) shareReadAccess(pass http.HandlerFunc) http.Han
 			shareName := r.URL.Query().Get("s")
 			if access, err := user.HasReadAccess(shareName); !access {
 				if err == nil {
-					http.Error(w, "Access Forbidden", http.StatusForbidden)
+					errMsg := "Access Forbidden"
+					http.Error(w, errMsg, http.StatusForbidden)
+					logHttp(service, r, http.StatusForbidden, len(errMsg))
 				} else {
-					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+					errMsg := "Internal Server Error"
+					http.Error(w, errMsg, http.StatusInternalServerError)
+					logHttp(service, r, http.StatusInternalServerError, len(errMsg))
 				}
 				return
 			}
@@ -133,7 +147,9 @@ func (service *MercuryFsService) restrictCache(pass http.HandlerFunc) http.Handl
 		fullPath, _ := service.fullPathToFile(share, path)
 
 		if strings.Contains(fullPath, ".fscache") {
-			http.Error(w, "Cannot access cache via /files", http.StatusForbidden)
+			errMsg := "Cannot access cache via /files"
+			http.Error(w, errMsg, http.StatusForbidden)
+			logHttp(service, r, http.StatusForbidden, len(errMsg))
 			return
 		}
 
@@ -158,9 +174,13 @@ func (service *MercuryFsService) shareWriteAccess(pass http.HandlerFunc) http.Ha
 			shareName := r.URL.Query().Get("s")
 			if access, err := user.HasWriteAccess(shareName); !access {
 				if err == nil {
-					http.Error(w, "Access Forbidden", http.StatusForbidden)
+					errMsg := "Access Forbidden"
+					http.Error(w, errMsg, http.StatusForbidden)
+					logHttp(service, r, http.StatusForbidden, len(errMsg))
 				} else {
-					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+					errMsg := "Internal Server Error"
+					http.Error(w, errMsg, http.StatusInternalServerError)
+					logHttp(service, r, http.StatusForbidden, len(errMsg))
 				}
 				return
 			}

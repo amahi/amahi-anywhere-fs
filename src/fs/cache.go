@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/disintegration/imaging"
 	"os"
 	"path/filepath"
@@ -11,7 +10,7 @@ import (
 func thumbnailer(imagePath string, savePath string) error {
 	img, err := imaging.Open(imagePath)
 	if err != nil {
-		log(`Error opening file at location: "%s" as image. Error is: "%s"`, imagePath, err.Error())
+		logError(`Error opening file at location: "%s" as image. Error is: "%s"`, imagePath, err.Error())
 		return err
 	}
 	imgX := img.Bounds().Max.X
@@ -25,7 +24,7 @@ func thumbnailer(imagePath string, savePath string) error {
 	os.MkdirAll(filepath.Dir(savePath), os.ModePerm)
 	err = imaging.Save(thumb, savePath)
 	if err != nil {
-		log(`Error saving image thumbnail for file at location: "%s". Error is: "%s"`, imagePath, err.Error())
+		logError(`Error saving image thumbnail for file at location: "%s". Error is: "%s"`, imagePath, err.Error())
 		return err
 	}
 
@@ -40,7 +39,7 @@ func fillCache(root string) error {
 func fillCacheWalkFunc(path string, info os.FileInfo, err error) error {
 	defer func() {
 		if v := recover(); v != nil {
-			log(fmt.Sprintf("Panic while creating thumbnail: %s", v))
+			logError("Panic while creating thumbnail: %s", v)
 		}
 	}()
 
@@ -84,12 +83,12 @@ func removeCacheWalkFunc(path string, info os.FileInfo, err error) error {
 	if ! os.IsNotExist(err) {
 		err := os.Remove(thumbnailPath)
 		if err != nil {
-			log(`Error while deleting cache file. Error: "%s"`, err.Error())
+			logError(`Error while deleting cache file. Error: "%s"`, err.Error())
 		}
 	}
 	err = watcher.Remove(path)
 	if err != nil {
-		log(fmt.Sprintf("Error while removing file from watcher: %s", err))
+		logError("Error while removing file from watcher: %s", err)
 	}
 	return nil
 }
