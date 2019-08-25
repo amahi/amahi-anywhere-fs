@@ -38,8 +38,8 @@ import (
 
 // DANGER DANGER DANGER
 // compile-time only options in case we need to disable checking the certs or https
-const DisableCertChecking = true
-const DisableHttps = true
+const DisableCertChecking = false
+const DisableHttps = false
 
 const VERSION = "2.2"
 
@@ -269,8 +269,8 @@ func setup() error {
 	signal.Notify(c, os.Interrupt)
 	go func() {
 		for sig := range c {
-			fmt.Printf("Exiting with %v", sig)
-			log.Printf("Exiting with %v", sig)
+			fmt.Printf("Exiting with %v\n", sig)
+			log.Printf("Exiting with %v\n", sig)
 			os.Remove(PID_FILE)
 			os.Exit(1)
 		}
