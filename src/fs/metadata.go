@@ -6,9 +6,8 @@ import (
 )
 
 type Metadata struct {
-	Format   string `json:"format"`
-	FileType string `json:"file_type"`
-
+	Format      string `json:"format"`
+	FileType    string `json:"file_type"`
 	Title       string `json:"title"`
 	Album       string `json:"album"`
 	Artist      string `json:"artist"`
@@ -16,13 +15,11 @@ type Metadata struct {
 	Composer    string `json:"composer"`
 	Genre       string `json:"genre"`
 	Year        int    `json:"year"`
-
-	Picture *tag.Picture // `json:"picture"` // Artwork
-	Lyrics  string `json:"lyrics"`
-	Comment string `json:"comment"`
+	Lyrics      string `json:"lyrics"`
+	Comment     string `json:"comment"`
 }
 
-func getMetadata(t tag.Metadata, thumbnail bool) (*Metadata) {
+func getMetadata(t tag.Metadata) (*Metadata) {
 	m := &Metadata{
 		Format:      string(t.Format()),
 		FileType:    string(t.FileType()),
@@ -36,14 +33,10 @@ func getMetadata(t tag.Metadata, thumbnail bool) (*Metadata) {
 		Lyrics:      string(t.Lyrics()),
 		Comment:     string(t.Comment()),
 	}
-
-	if thumbnail {
-		m.Picture = t.Picture()
-	}
 	return m
 }
 
-func getMetadataFromPath(path string, thumbnail bool) (*Metadata, error) {
+func getMetadataFromPath(path string) (*Metadata, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -52,5 +45,5 @@ func getMetadataFromPath(path string, thumbnail bool) (*Metadata, error) {
 	if err != nil {
 		return nil, err
 	}
-	return getMetadata(t, thumbnail), nil
+	return getMetadata(t), nil
 }

@@ -25,7 +25,6 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
-	"path/filepath"
 	"regexp"
 	"runtime"
 	"strconv"
@@ -218,12 +217,6 @@ func (service *MercuryFsService) serveCache(writer http.ResponseWriter, request 
 	service.printRequest(request)
 
 	fullPath, err := service.fullPathToFile(share, path)
-
-	parentDir := filepath.Dir(fullPath)
-	filename := filepath.Base(fullPath)
-	thumbnailDirPath := filepath.Join(parentDir, ".fscache/thumbnails")
-	thumbnailPath := filepath.Join(thumbnailDirPath, filename)
-
 	if err != nil {
 		debug(2, "File not found: %s", err)
 		http.NotFound(writer, request)
@@ -231,6 +224,7 @@ func (service *MercuryFsService) serveCache(writer http.ResponseWriter, request 
 		log("\"GET %s\" 404 0 \"%s\"", query, ua)
 		return
 	}
+	thumbnailPath := getThumbnailPath(fullPath)
 	osFile, err := os.Open(thumbnailPath)
 	if err != nil {
 		debug(2, "Error opening cache file: %s", err.Error())
@@ -750,7 +744,7 @@ func (service *MercuryFsService) serveMetadata(writer http.ResponseWriter, reque
 	q := request.URL
 	path := q.Query().Get("p")
 	share := q.Query().Get("s")
-	thumbnail := q.Query().Get("t")
+	//thumbnail := q.Query().Get("t")
 	ua := request.Header.Get("User-Agent")
 	query := pathForLog(request.URL)
 
@@ -768,12 +762,7 @@ func (service *MercuryFsService) serveMetadata(writer http.ResponseWriter, reque
 		return
 	}
 
-	var m *Metadata
-	if strings.ToLower(thumbnail) == "yes" {
-		m, err = getMetadataFromPath(fullPath, true)
-	} else {
-		m, err = getMetadataFromPath(fullPath, false)
-	}
+	m, err := getMetadataFromPath(fullPath)
 	if err != nil {
 		debug(2, "Error getting metadata: %s", err.Error())
 		http.NotFound(writer, request)
