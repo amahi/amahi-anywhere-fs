@@ -62,11 +62,12 @@ func (f *fileCacheInfo) invalidateCache() {
 }
 
 func (f *fileCacheInfo) fillCache(filePath, share, path string) {
-	parentDir := filepath.Dir(filePath)
+	//parentDir := filepath.Dir(filePath)
 	filename := filepath.Base(filePath)
 
-	thumbnailDirPath := filepath.Join(parentDir, ".fscache/thumbnails")
-	thumbnailPath := filepath.Join(thumbnailDirPath, filename)
+	//thumbnailDirPath := filepath.Join(parentDir, ".fscache/thumbnails")
+	//thumbnailPath := filepath.Join(thumbnailDirPath, filename)
+	thumbnailPath := getThumbnailPath(filePath)
 	thumbnailInfo, err := os.Stat(thumbnailPath)
 	if os.IsNotExist(err) {
 		f.status = false
