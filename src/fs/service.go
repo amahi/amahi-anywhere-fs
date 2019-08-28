@@ -76,7 +76,7 @@ func NewMercuryFSService(rootDir, localAddr string, isDemo bool) (service *Mercu
 	apiRouter.HandleFunc("/files", use(service.deleteFile, service.shareWriteAccess, service.restrictCache)).Methods("DELETE")
 	apiRouter.HandleFunc("/files", use(service.uploadFile, service.shareWriteAccess, service.restrictCache)).Methods("POST")
 	apiRouter.HandleFunc("/cache", use(service.serveCache, service.shareReadAccess)).Methods("GET")
-	apiRouter.HandleFunc("/meta", use(service.serveMetadata, service.shareReadAccess)).Methods("GET")
+	apiRouter.HandleFunc("/meta", use(service.serveMetadata, service.shareReadAccess, service.restrictCache)).Methods("GET")
 	apiRouter.HandleFunc("/apps", service.appsList).Methods("GET")
 	apiRouter.HandleFunc("/md", service.getMetadata).Methods("GET")
 	apiRouter.HandleFunc("/hda_debug", service.hdaDebug).Methods("GET")
@@ -764,7 +764,7 @@ func (service *MercuryFsService) serveMetadata(writer http.ResponseWriter, reque
 
 	m, err := getMetadataFromPath(fullPath)
 	if err != nil {
-		debug(2, "Error getting metadata: %s", err.Error())
+		debug(2, "Error getting metadata for file: %s. Error is: %s", fullPath, err.Error())
 		http.NotFound(writer, request)
 		service.debugInfo.requestServed(int64(0))
 		log("\"GET %s\" 404 0 \"%s\"", query, ua)
@@ -779,6 +779,8 @@ func (service *MercuryFsService) serveMetadata(writer http.ResponseWriter, reque
 		log("\"GET %s\" 500 0 \"%s\"", query, ua)
 		return
 	}
+	writer.Header().Set("Content-Type", "application/json")
+	writer.WriteHeader(http.StatusOK)
 	size, _ := writer.Write(b)
 	log("\"GET %s\" %d %d \"%s\"", query, 200, size, ua)
 	service.debugInfo.requestServed(int64(size))
