@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/amahi/go-metadata"
@@ -24,7 +25,6 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
-	"path/filepath"
 	"regexp"
 	"runtime"
 	"strconv"
@@ -76,6 +76,7 @@ func NewMercuryFSService(rootDir, localAddr string, isDemo bool) (service *Mercu
 	apiRouter.HandleFunc("/files", use(service.deleteFile, service.shareWriteAccess, service.restrictCache)).Methods("DELETE")
 	apiRouter.HandleFunc("/files", use(service.uploadFile, service.shareWriteAccess, service.restrictCache)).Methods("POST")
 	apiRouter.HandleFunc("/cache", use(service.serveCache, service.shareReadAccess)).Methods("GET")
+	apiRouter.HandleFunc("/meta", use(service.serveMetadata, service.shareReadAccess, service.restrictCache)).Methods("GET")
 	apiRouter.HandleFunc("/apps", service.appsList).Methods("GET")
 	apiRouter.HandleFunc("/md", service.getMetadata).Methods("GET")
 	apiRouter.HandleFunc("/hda_debug", service.hdaDebug).Methods("GET")
@@ -216,12 +217,6 @@ func (service *MercuryFsService) serveCache(writer http.ResponseWriter, request 
 	service.printRequest(request)
 
 	fullPath, err := service.fullPathToFile(share, path)
-
-	parentDir := filepath.Dir(fullPath)
-	filename := filepath.Base(fullPath)
-	thumbnailDirPath := filepath.Join(parentDir, ".fscache/thumbnails")
-	thumbnailPath := filepath.Join(thumbnailDirPath, filename)
-
 	if err != nil {
 		debug(2, "File not found: %s", err)
 		http.NotFound(writer, request)
@@ -229,6 +224,7 @@ func (service *MercuryFsService) serveCache(writer http.ResponseWriter, request 
 		log("\"GET %s\" 404 0 \"%s\"", query, ua)
 		return
 	}
+	thumbnailPath := getThumbnailPath(fullPath)
 	osFile, err := os.Open(thumbnailPath)
 	if err != nil {
 		debug(2, "Error opening cache file: %s", err.Error())
@@ -742,4 +738,50 @@ func (service *MercuryFsService) uploadFile(writer http.ResponseWriter, request 
 	writer.WriteHeader(http.StatusOK)
 
 	return
+}
+
+func (service *MercuryFsService) serveMetadata(writer http.ResponseWriter, request *http.Request) {
+	q := request.URL
+	path := q.Query().Get("p")
+	share := q.Query().Get("s")
+	//thumbnail := q.Query().Get("t")
+	ua := request.Header.Get("User-Agent")
+	query := pathForLog(request.URL)
+
+	debug(2, "serve_file GET request")
+
+	service.printRequest(request)
+
+	fullPath, err := service.fullPathToFile(share, path)
+
+	if err != nil {
+		debug(2, "File not found: %s", err)
+		http.NotFound(writer, request)
+		service.debugInfo.requestServed(int64(0))
+		log("\"GET %s\" 404 0 \"%s\"", query, ua)
+		return
+	}
+
+	m, err := getMetadataFromPath(fullPath)
+	if err != nil {
+		debug(2, "Error getting metadata for file: %s. Error is: %s", fullPath, err.Error())
+		http.NotFound(writer, request)
+		service.debugInfo.requestServed(int64(0))
+		log("\"GET %s\" 404 0 \"%s\"", query, ua)
+		return
+	}
+
+	b, err := json.Marshal(m)
+	if err != nil {
+		debug(2, "Internal Server Error: %s", err.Error())
+		writer.WriteHeader(http.StatusInternalServerError)
+		service.debugInfo.requestServed(int64(0))
+		log("\"GET %s\" 500 0 \"%s\"", query, ua)
+		return
+	}
+	writer.Header().Set("Content-Type", "application/json")
+	writer.WriteHeader(http.StatusOK)
+	size, _ := writer.Write(b)
+	log("\"GET %s\" %d %d \"%s\"", query, 200, size, ua)
+	service.debugInfo.requestServed(int64(size))
 }
