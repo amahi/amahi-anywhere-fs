@@ -37,14 +37,16 @@ func newHdaApps() (*HdaApps, error) {
 func (apps *HdaApps) list() error {
 	dbconn, err := sql.Open("mysql", MYSQL_CREDENTIALS)
 	if err != nil {
-		log(err.Error())
+		//log(err.Error())
+		logging.Error(err.Error())
 		return err
 	}
 	defer dbconn.Close()
 	q := SQL_SELECT_APPS
 	rows, err := dbconn.Query(q)
 	if err != nil {
-		log(err.Error())
+		//log(err.Error())
+		logging.Error(err.Error())
 		return err
 	}
 	newApps := make([]*HdaApp, 0)

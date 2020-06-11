@@ -57,7 +57,8 @@ func (shares *HdaShares) updateShares() error {
 func (shares *HdaShares) updateSqlShares() error {
 	dbconn, err := sql.Open("mysql", MYSQL_CREDENTIALS)
 	if err != nil {
-		log(err.Error())
+		//log(err.Error())
+		logging.Error(err.Error())
 		return err
 	}
 	defer dbconn.Close()
@@ -65,7 +66,8 @@ func (shares *HdaShares) updateSqlShares() error {
 	debug(5, "share query: %s\n", q)
 	rows, err := dbconn.Query(q)
 	if err != nil {
-		log(err.Error())
+		//log(err.Error())
+		logging.Error(err.Error())
 		return err
 	}
 	newShares := make([]*HdaShare, 0)
@@ -88,7 +90,8 @@ func (shares *HdaShares) updateDirShares() (nil error) {
 
 	dir, err := os.Open(shares.rootDir)
 	if err != nil {
-		log(err.Error())
+		//log(err.Error())
+		logging.Error(err.Error())
 		return err
 	}
 	defer dir.Close()
@@ -203,7 +206,8 @@ func (shares *HdaShares) createThumbnailCache() {
 			// watch for events
 			case event := <-watcher.Events:
 				op := event.Op.String()
-				log("FSNOTIFY EVENT: `%s`, NAME: `%s`", op, event.Name)
+				//log("FSNOTIFY EVENT: `%s`, NAME: `%s`", op, event.Name)
+				logging.Info("FSNOTIFY EVENT: `%s`, NAME: `%s`", op, event.Name)
 				switch {
 				case op == "CREATE" || op == "WRITE":
 					fillCache(event.Name)
@@ -218,7 +222,8 @@ func (shares *HdaShares) createThumbnailCache() {
 		}
 	}()
 
-	log("Starting caching")
+	//log("Starting caching")
+	logging.Info("Starting caching")
 	for i := range shares.Shares {
 		// get path of the shares
 		path := shares.Shares[i].path
