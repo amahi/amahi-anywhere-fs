@@ -11,6 +11,7 @@ const (
 	LevelWarn
 	LevelDebug
 	LevelFatal
+	Access
 )
 
 func (l Level) String() string {
@@ -25,6 +26,8 @@ func (l Level) String() string {
 		return "WARN"
 	case LevelFatal:
 		return "FATAL"
+	case Access:
+		return "ACCESS"
 	default:
 		return "DEBUG"
 	}

@@ -49,6 +49,17 @@ type Logging struct {
 	logChan      chan *LogMsg
 }
 
+// AccessLogRecord struct for holding access log data.
+type AccessLogRecord struct {
+	RemoteAddr    string        `json:"remote_addr"`
+	RequestTime   time.Time     `json:"request_time"`
+	Request       string        `json:"request"`
+	Status        int           `json:"status"`
+	BodyBytesSent int           `json:"body_bytes_sent"`
+	ElapsedTime   time.Duration `json:"elapsed_time"`
+	HTTPReferrer  string        `json:"http_referrer"`
+	HTTPUserAgent string        `json:"http_user_agent"`
+}
 
 var currentDebugLevel = LevelInfo
 var mutex sync.Mutex
@@ -97,7 +108,7 @@ func (l *Logging) initFile() error {
 			buffer: nil,
 		}
 	} else if splitType == splitFile {
-		levels := []Level{LevelDebug, LevelTrace, LevelInfo, LevelWarn, LevelError, LevelFatal}
+		levels := []Level{LevelDebug, LevelTrace, LevelInfo, LevelWarn, LevelError, LevelFatal, Access}
 		for _, level := range levels {
 			levelStr := strings.ToLower(level.String())
 			logFile := filepath.Join(logPath, "."+levelStr+"."+l.fileName)
@@ -112,7 +123,7 @@ func (l *Logging) initFile() error {
 
 		}
 	} else if splitType == splitDir {
-		levels := []Level{LevelDebug, LevelTrace, LevelInfo, LevelWarn, LevelError, LevelFatal}
+		levels := []Level{LevelDebug, LevelTrace, LevelInfo, LevelWarn, LevelError, LevelFatal, Access}
 		for _, level := range levels {
 			levelStr := strings.ToLower(level.String())
 			sonLogPath := filepath.Join(logPath, levelStr)
@@ -217,7 +228,7 @@ func (l *Logging) backgroundLog() {
 				continue
 			}
 			l.fileHandlers[fileIndexStr].buffer = append(l.fileHandlers[fileIndexStr].buffer, msg)
-			if len(l.fileHandlers[fileIndexStr].buffer) >= 2 * 1024 {
+			if len(l.fileHandlers[fileIndexStr].buffer) >= 2*1024 {
 				l.flush()
 			}
 		default:
@@ -272,3 +283,14 @@ func createPath(path string, perm os.FileMode) error {
 	return nil
 }
 
+func (l *Logging) AccessLog(r *AccessLogRecord) {
+	timeFormatted := r.RequestTime.Format("02/Jan/2006 03:04:05")
+	apacheFormatPattern := "%s - - [%s] \"%s %d %d\" %f %s %s"
+	msg := fmt.Sprintf(apacheFormatPattern, r.RemoteAddr, timeFormatted, r.Request, r.Status, r.BodyBytesSent,
+		r.ElapsedTime.Seconds(), r.HTTPReferrer, r.HTTPUserAgent)
+	select {
+	case l.logChan <- &LogMsg{level: Access, message: msg}:
+	default:
+
+	}
+}
