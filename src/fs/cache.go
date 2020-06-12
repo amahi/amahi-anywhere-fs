@@ -41,7 +41,6 @@ func fillCache(root string) error {
 func fillCacheWalkFunc(path string, info os.FileInfo, err error) error {
 	defer func() {
 		if v := recover(); v != nil {
-			//log(fmt.Sprintf("Panic while creating thumbnail: %s", v))
 			logging.Fatal("Panic while creating thumbnail: %s", v)
 		}
 	}()

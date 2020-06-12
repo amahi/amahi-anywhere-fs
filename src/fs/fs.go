@@ -195,9 +195,6 @@ func contactPfe(relayHost, relayPort, apiKey string, service *MercuryFsService) 
 
 	if DisableCertChecking {
 		warning := "WARNING WARNING WARNING: running without checking TLS certs!!"
-		//log(warning)
-		//log(warning)
-		//log(warning)
 		logging.Warning(warning)
 		logging.Warning(warning)
 		logging.Warning(warning)
@@ -224,7 +221,6 @@ func contactPfe(relayHost, relayPort, apiKey string, service *MercuryFsService) 
 
 	if DisableHttps {
 		warning := "WARNING WARNING: running without TLS!!"
-		//log(warning)
 		logging.Warning(warning)
 		fmt.Println(warning)
 		conn := tcpConn
