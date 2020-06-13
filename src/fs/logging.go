@@ -61,7 +61,7 @@ type AccessLogRecord struct {
 	HTTPUserAgent string        `json:"http_user_agent"`
 }
 
-var currentDebugLevel = LevelInfo
+var currentDebugLevel = 3
 var mutex sync.Mutex
 var noBuffer = false
 var logging *Logging
@@ -71,7 +71,6 @@ func initializeLogging(filePath string, splitType int, noBuffer bool) {
 		filePath:     filePath,
 		splitType:    splitType,
 		fileName:     filepath.Base(filePath),
-		level:        LevelTrace,
 		noBuffer:     noBuffer,
 		fileHandlers: make(map[string]*fileHandler),
 		logChan:      make(chan *LogMsg, 1024),
@@ -88,11 +87,9 @@ func initializeLogging(filePath string, splitType int, noBuffer bool) {
 func (l *Logging) initFile() error {
 
 	splitType := l.splitType
-	logPath, err := filepath.Abs(l.filePath)
-	if err != nil {
-		return err
-	}
-	err = createPath(logPath, 0644)
+	logPath  := filepath.Dir(l.filePath)
+
+	err := createPath(logPath, 0644)
 	if err != nil {
 		return err
 	}
@@ -166,22 +163,21 @@ func (l *Logging) Fatal(format string, a ...interface{}) {
 	l.outPut(LevelFatal, format, a...)
 }
 
-func debugLevel(level Level) {
-	logging.level = level
+func debugLevel(level int) {
+	currentDebugLevel = level
 }
 
-func debug(level Level, f string, args ...interface{}) {
+func debug(level int, f string, args ...interface{}) {
 	if PRODUCTION {
 		return
 	}
-	if logging.level <= level {
-		logging.outPut(level, f, args)
+	if level <= currentDebugLevel {
+		logging.Debug(f,args)
 	}
 }
 
 func (l *Logging) outPut(level Level, format string, a ...interface{}) {
 	now := time.Now().Format("2006-01-02 15:04:05")
-
 	funcName, fileName, lineNo := getInfo(3)
 
 	format = fmt.Sprintf(format, a...)
@@ -232,7 +228,7 @@ func (l *Logging) backgroundLog() {
 				l.flush()
 			}
 		default:
-			// if channel is nil, sleep
+			// if channel is nil, then sleep
 			time.Sleep(time.Millisecond * 200)
 		}
 	}

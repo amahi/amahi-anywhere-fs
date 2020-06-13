@@ -101,7 +101,7 @@ func main() {
 		flag.PrintDefaults()
 		return
 	}
-	debugLevel(Level(dbg))
+	debugLevel(dbg)
 
 	if noDelete {
 		fmt.Printf("NOTICE: running without deleting content!\n")

@@ -6,10 +6,10 @@ type Level int
 
 const (
 	LevelTrace Level = iota
+	LevelDebug
 	LevelInfo
 	LevelError
 	LevelWarn
-	LevelDebug
 	LevelFatal
 	Access
 )
