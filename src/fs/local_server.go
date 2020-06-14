@@ -19,25 +19,29 @@ func (service *MercuryFsService) startLocalServer() {
 
 	addr, err := net.ResolveTCPAddr("tcp", ":"+LocalServerPort)
 	if err != nil {
-		log("Could not resolve local address")
+		//log("Could not resolve local address")
+		logging.Error("Could not resolve local address")
 		debug(2, "Error resolving local address: %s", err.Error())
 		return
 	}
 
 	listener, err := net.ListenTCP("tcp", addr)
 	if err != nil {
-		log("Local server could not be started")
+		//log("Local server could not be started")
+		logging.Error("Local server could not be started")
 		debug(2, "Error on ListenTCP: %s", err.Error())
 		return
 	}
 	defer listener.Close()
 
 	for {
-		log("Starting local file server")
+		//log("Starting local file server")
+		logging.Info("Starting local file server")
 		debug(2, "Starting local file server at: %s", LocalServerPort)
 		err = service.server.Serve(listener)
 		if err != nil {
-			log("An error occurred in the local file server")
+			//log("An error occurred in the local file server")
+			logging.Error("An error occurred in the local file server")
 			debug(2, "local file server: %s", err.Error())
 		}
 	}
