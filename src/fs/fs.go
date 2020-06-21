@@ -77,6 +77,7 @@ func main() {
 		flag.StringVar(&relayPort, "pfe-port", PFE_PORT, "port the pfe is using")
 		flag.BoolVar(&noDelete, "nd", false, "ignore delete requests silently")
 		flag.BoolVar(&noUpload, "nu", false, "ignore upload requests silently")
+		flag.BoolVar(&noBuffer, "nb", false, "ignore buffer logging silently")
 	}
 	flag.Parse()
 
@@ -109,7 +110,7 @@ func main() {
 		fmt.Printf("NOTICE: running without uploading content!\n")
 	}
 
-	initializeLogging()
+	initializeLogging(LOGFILE, splitFile, noBuffer)
 
 	metadata, err := metadata.Init(100000, METADATA_FILE, TMDB_API_KEY, TVRAGE_API_KEY, TVDB_API_KEY)
 	if err != nil {
@@ -134,8 +135,8 @@ func main() {
 
 	go service.Shares.createThumbnailCache()
 
-	log("Amahi Anywhere service v%s", VERSION)
-
+	//log("Amahi Anywhere service v%s", VERSION)
+	logging.Info("Amahi Anywhere service v%s", VERSION)
 	debug(4, "using api-key %s", apiKey)
 
 	if http2Debug {
@@ -150,12 +151,14 @@ func main() {
 	for {
 		conn, err := contactPfe(relayHost, relayPort, apiKey, service)
 		if err != nil {
-			log("Error contacting the proxy.")
+			//log("Error contacting the proxy.")
+			logging.Error("Error contacting the proxy.")
 			debug(2, "Error contacting the proxy: %s", err)
 		} else {
 			err = service.StartServing(conn)
 			if err != nil {
-				log("Error serving requests")
+				//log("Error serving requests")
+				logging.Error("Error serving requests")
 				debug(2, "Error in StartServing: %s", err)
 			}
 		}
@@ -170,7 +173,8 @@ func main() {
 func contactPfe(relayHost, relayPort, apiKey string, service *MercuryFsService) (net.Conn, error) {
 
 	relayLocation := relayHost + ":" + relayPort
-	log("Contacting Relay at: " + relayLocation)
+	//log("Contacting Relay at: " + relayLocation)
+	logging.Info("Contacting Relay at: " + relayLocation)
 	addr, err := net.ResolveTCPAddr("tcp", relayLocation)
 	if err != nil {
 		debug(2, "Error with ResolveTCPAddr: %s", err)
@@ -191,9 +195,9 @@ func contactPfe(relayHost, relayPort, apiKey string, service *MercuryFsService) 
 
 	if DisableCertChecking {
 		warning := "WARNING WARNING WARNING: running without checking TLS certs!!"
-		log(warning)
-		log(warning)
-		log(warning)
+		logging.Warning(warning)
+		logging.Warning(warning)
+		logging.Warning(warning)
 		fmt.Println(warning)
 		fmt.Println(warning)
 		fmt.Println(warning)
@@ -217,7 +221,7 @@ func contactPfe(relayHost, relayPort, apiKey string, service *MercuryFsService) 
 
 	if DisableHttps {
 		warning := "WARNING WARNING: running without TLS!!"
-		log(warning)
+		logging.Warning(warning)
 		fmt.Println(warning)
 		conn := tcpConn
 		client = httputil.NewClientConn(conn, nil)
@@ -234,12 +238,13 @@ func contactPfe(relayHost, relayPort, apiKey string, service *MercuryFsService) 
 
 	if response.StatusCode != 200 {
 		msg := fmt.Sprintf("Got an error response: %s", response.Status)
-		log(msg)
+		//log(msg)
+		logging.Error("Got an error response: %s", response.Status)
 		return nil, errors.New(msg)
 	}
 
-	log("Connected to the proxy")
-
+	//log("Connected to the proxy")
+	logging.Info("Connected to the proxy")
 	netCon, _ := client.Hijack()
 
 	return netCon, nil
@@ -266,7 +271,8 @@ func setup() error {
 	signal.Notify(c, os.Interrupt)
 	go func() {
 		for sig := range c {
-			log("Exiting with %v", sig)
+			//log("Exiting with %v", sig)
+			logging.Info("Exiting with %v", sig)
 			os.Remove(PID_FILE)
 			os.Exit(1)
 		}
