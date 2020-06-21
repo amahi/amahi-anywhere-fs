@@ -764,6 +764,7 @@ func (service *MercuryFsService) accessLog(logging *Logging, request *http.Reque
 		ElapsedTime:   elapsedTime,
 		HTTPReferrer:  referrer,
 		HTTPUserAgent: ua,
+		UserConnected: len(service.Users.Users),
 	}
 	logging.AccessLog(record)
 }
