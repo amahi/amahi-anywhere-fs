@@ -51,7 +51,7 @@ type Logging struct {
 
 // AccessLogRecord struct for holding access log data.
 type AccessLogRecord struct {
-	RemoteAddr    string        `json:"remote_addr"`
+	Origin        string        `json:"origin"`
 	RequestTime   time.Time     `json:"request_time"`
 	Request       string        `json:"request"`
 	Status        int           `json:"status"`
@@ -283,7 +283,7 @@ func createPath(path string, perm os.FileMode) error {
 func (l *Logging) AccessLog(r *AccessLogRecord) {
 	timeFormatted := r.RequestTime.Format("02/Jan/2006 03:04:05")
 	apacheFormatPattern := "%s - - [%s] \"%s %d %d\" %f %s %s - - - %d"
-	msg := fmt.Sprintf(apacheFormatPattern, r.RemoteAddr, timeFormatted, r.Request, r.Status, r.BodyBytesSent,
+	msg := fmt.Sprintf(apacheFormatPattern, r.Origin, timeFormatted, r.Request, r.Status, r.BodyBytesSent,
 		r.ElapsedTime.Seconds(), r.HTTPReferrer, r.HTTPUserAgent, r.UserConnected)
 	select {
 	case l.logChan <- &LogMsg{level: Access, message: msg}:

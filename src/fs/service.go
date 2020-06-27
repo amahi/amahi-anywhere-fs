@@ -749,14 +749,23 @@ func (service *MercuryFsService) accessLog(logging *Logging, request *http.Reque
 	var requestTime time.Time
 	var elapsedTime time.Duration
 
+	origin := ""
 	referrer := request.Header.Get("Referer")
 	ua := request.Header.Get("User-Agent")
-
 	requestTime = time.Now()
 	elapsedTime = time.Since(requestTime)
 
+	switch request.Host {
+	case service.info.local_addr:
+		origin += "local_addr:" + service.info.local_addr
+	case service.info.relay_addr:
+		origin += "remote_addr:" + service.info.relay_addr
+	default:
+		origin += "unknown"
+	}
+
 	record := &AccessLogRecord{
-		RemoteAddr:    service.info.relay_addr,
+		Origin:        origin,
 		RequestTime:   requestTime,
 		Request:       fmt.Sprintf("%s %s %s", request.Method, pathForLog(request.URL), request.Proto),
 		Status:        statusCode,
