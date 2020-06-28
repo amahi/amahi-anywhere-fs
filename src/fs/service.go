@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/amahi/go-metadata"
@@ -76,6 +77,7 @@ func NewMercuryFSService(rootDir, localAddr string, isDemo bool) (service *Mercu
 	apiRouter.HandleFunc("/files", use(service.deleteFile, service.shareWriteAccess, service.restrictCache)).Methods("DELETE")
 	apiRouter.HandleFunc("/files", use(service.uploadFile, service.shareWriteAccess, service.restrictCache)).Methods("POST")
 	apiRouter.HandleFunc("/cache", use(service.serveCache, service.shareReadAccess)).Methods("GET")
+	apiRouter.HandleFunc("/meta", use(service.serveMetadata, service.shareReadAccess)).Methods("GET")
 	apiRouter.HandleFunc("/apps", service.appsList).Methods("GET")
 	apiRouter.HandleFunc("/md", service.getMetadata).Methods("GET")
 	apiRouter.HandleFunc("/hda_debug", service.hdaDebug).Methods("GET")
@@ -743,6 +745,51 @@ func (service *MercuryFsService) uploadFile(writer http.ResponseWriter, request 
 	writer.WriteHeader(http.StatusOK)
 	service.accessLog(logging, request, http.StatusOK, 0)
 	return
+}
+
+func (service *MercuryFsService) serveMetadata(writer http.ResponseWriter, request *http.Request) {
+	q := request.URL
+	path := q.Query().Get("p")
+	share := q.Query().Get("s")
+
+	debug(2, "metadata GET request")
+
+	service.printRequest(request)
+
+	fullPath, err := service.fullPathToFile(share, path)
+
+	if err != nil {
+		debug(2, "File not found: %s", err)
+		http.NotFound(writer, request)
+		service.debugInfo.requestServed(int64(0))
+		service.accessLog(logging, request, http.StatusNotFound, 0)
+		return
+	}
+
+	var m *Metadata
+	m, err = getMetadataByPath(fullPath)
+
+	if err != nil {
+		debug(2, "Error getting metadata: %s", err.Error())
+		http.NotFound(writer, request)
+		service.debugInfo.requestServed(int64(0))
+		service.accessLog(logging, request, http.StatusNotFound, 0)
+		return
+	}
+
+	b, err := json.Marshal(m)
+	if err != nil {
+		debug(2, "Internal Server Error: %s", err.Error())
+		writer.WriteHeader(http.StatusInternalServerError)
+		service.debugInfo.requestServed(int64(0))
+		service.accessLog(logging, request, http.StatusInternalServerError,0)
+		return
+	}
+	writer.Header().Set("Content-Type", "application/json")
+	writer.WriteHeader(http.StatusOK)
+	size, _ := writer.Write(b)
+	service.accessLog(logging, request, http.StatusOK, size)
+	service.debugInfo.requestServed(int64(size))
 }
 
 func (service *MercuryFsService) accessLog(logging *Logging, request *http.Request, statusCode int, bodySize int) {
