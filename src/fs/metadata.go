@@ -6,7 +6,6 @@ import (
 
 type Metadata struct {
 	Tag         string      `json:"tag"`
-	FileType    string      `json:"file_type"`
 	Title       string      `json:"title"`
 	Album       string      `json:"album"`
 	Artist      string      `json:"artist"`
