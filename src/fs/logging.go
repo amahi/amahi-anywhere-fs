@@ -59,6 +59,7 @@ type AccessLogRecord struct {
 	ElapsedTime   time.Duration `json:"elapsed_time"`
 	HTTPReferrer  string        `json:"http_referrer"`
 	HTTPUserAgent string        `json:"http_user_agent"`
+	UserConnected int           `json:"user_connected"`
 }
 
 var currentDebugLevel = 3
@@ -87,7 +88,7 @@ func initializeLogging(filePath string, splitType int, noBuffer bool) {
 func (l *Logging) initFile() error {
 
 	splitType := l.splitType
-	logPath  := filepath.Dir(l.filePath)
+	logPath := filepath.Dir(l.filePath)
 
 	err := createPath(logPath, 0644)
 	if err != nil {
@@ -172,7 +173,7 @@ func debug(level int, f string, args ...interface{}) {
 		return
 	}
 	if level <= currentDebugLevel {
-		logging.Debug(f,args)
+		logging.Debug(f, args)
 	}
 }
 
@@ -281,9 +282,9 @@ func createPath(path string, perm os.FileMode) error {
 
 func (l *Logging) AccessLog(r *AccessLogRecord) {
 	timeFormatted := r.RequestTime.Format("02/Jan/2006 03:04:05")
-	apacheFormatPattern := "%s - - [%s] \"%s %d %d\" %f %s %s"
+	apacheFormatPattern := "%s - - [%s] \"%s %d %d\" %f %s %s - - - %d"
 	msg := fmt.Sprintf(apacheFormatPattern, r.RemoteAddr, timeFormatted, r.Request, r.Status, r.BodyBytesSent,
-		r.ElapsedTime.Seconds(), r.HTTPReferrer, r.HTTPUserAgent)
+		r.ElapsedTime.Seconds(), r.HTTPReferrer, r.HTTPUserAgent, r.UserConnected)
 	select {
 	case l.logChan <- &LogMsg{level: Access, message: msg}:
 	default:
