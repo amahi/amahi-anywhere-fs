@@ -48,7 +48,13 @@ func cacheMetadataPicture(path string, savePath string) error {
 	}
 
 	if picture != nil {
-		savePath = savePath + ".jpg"
+		// song.mp3
+		fileName := filepath.Base(path)
+		index := strings.Index(fileName, ".")
+		// song_artwork.jpg
+		artworkName := fileName[:index] + "_artwork" + ".jpg"
+		savePath = filepath.Join(filepath.Dir(savePath), artworkName)
+
 		if err = os.MkdirAll(filepath.Dir(savePath), os.ModePerm); err != nil {
 			logging.Error(`Error creating parent directory for file: "%s". Error is: "%s"`, savePath, err.Error())
 			return err
