@@ -51,7 +51,7 @@ type Logging struct {
 
 // AccessLogRecord struct for holding access log data.
 type AccessLogRecord struct {
-	RemoteAddr    string        `json:"remote_addr"`
+	Origin        string        `json:"origin"`
 	RequestTime   time.Time     `json:"request_time"`
 	Request       string        `json:"request"`
 	Status        int           `json:"status"`
@@ -79,7 +79,7 @@ func initializeLogging(filePath string, splitType int, noBuffer bool) {
 	err := logging.initFile()
 
 	if err != nil {
-		panic(err)
+		fmt.Errorf("initializing log failed: %s",err)
 		return
 	}
 }
@@ -178,6 +178,12 @@ func debug(level int, f string, args ...interface{}) {
 }
 
 func (l *Logging) outPut(level Level, format string, a ...interface{}) {
+	defer func() {
+		if v := recover(); v != nil {
+			fmt.Printf("Panic while writing logs: %s",v)
+		}
+	}()
+
 	now := time.Now().Format("2006-01-02 15:04:05")
 	funcName, fileName, lineNo := getInfo(3)
 
@@ -220,7 +226,7 @@ func (l *Logging) backgroundLog() {
 			if l.noBuffer {
 				_, err := l.fileHandlers[fileIndexStr].File.WriteString(msg)
 				if err != nil {
-					panic(err)
+					fmt.Errorf("writing logs err: %s",err)
 				}
 				continue
 			}
@@ -248,7 +254,7 @@ func (l *Logging) flush() {
 		}
 		_, err := handler.File.WriteString(strings.Join(buffer, ""))
 		if err != nil {
-			panic(err)
+			fmt.Errorf("writing logs err: %s",err)
 		}
 	}
 }
@@ -283,7 +289,7 @@ func createPath(path string, perm os.FileMode) error {
 func (l *Logging) AccessLog(r *AccessLogRecord) {
 	timeFormatted := r.RequestTime.Format("02/Jan/2006 03:04:05")
 	apacheFormatPattern := "%s - - [%s] \"%s %d %d\" %f %s %s - - - %d"
-	msg := fmt.Sprintf(apacheFormatPattern, r.RemoteAddr, timeFormatted, r.Request, r.Status, r.BodyBytesSent,
+	msg := fmt.Sprintf(apacheFormatPattern, r.Origin, timeFormatted, r.Request, r.Status, r.BodyBytesSent,
 		r.ElapsedTime.Seconds(), r.HTTPReferrer, r.HTTPUserAgent, r.UserConnected)
 	select {
 	case l.logChan <- &LogMsg{level: Access, message: msg}:
