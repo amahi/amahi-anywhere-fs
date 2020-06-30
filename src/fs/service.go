@@ -768,7 +768,6 @@ func (service *MercuryFsService) serveMetadata(writer http.ResponseWriter, reque
 
 	var m *Metadata
 	m, err = getMetadataByPath(fullPath)
-
 	if err != nil {
 		debug(2, "Error getting metadata: %s", err.Error())
 		http.NotFound(writer, request)
@@ -776,6 +775,12 @@ func (service *MercuryFsService) serveMetadata(writer http.ResponseWriter, reque
 		service.accessLog(logging, request, http.StatusNotFound, 0)
 		return
 	}
+	parentDir := filepath.Dir(path)
+	fileName := filepath.Base(path)
+	index := strings.Index(fileName, ".")
+	artworkName := fileName[:index] + "_artwork" + ".jpg"
+	artworkPath := filepath.Join(parentDir,artworkName)
+	m.AlbumArtwork = fmt.Sprintf("/cache?s=%s&p=%s",share,artworkPath)
 
 	b, err := json.Marshal(m)
 	if err != nil {

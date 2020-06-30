@@ -14,6 +14,7 @@ type Metadata struct {
 	Genre       string      `json:"genre"`
 	Year        int         `json:"year"`
 	TrackNumber int         `json:"track_number"`
+	AlbumArtwork string     `json:"album_artwork"`
 }
 
 func getMetaData(tags tag.Metadata) (*Metadata) {
