@@ -28,5 +28,4 @@ pkg
 src/github.com
 src/golang.org
 
-debian
 release

@@ -40,7 +40,7 @@ import (
 const DisableCertChecking = false
 const DisableHttps = false
 
-const VERSION = "2.2"
+const VERSION = "2.3"
 
 var noDelete = false
 var noUpload = false
