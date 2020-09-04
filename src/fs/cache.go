@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/disintegration/imaging"
+	"github.com/frolovo22/tag"
 	"os"
 	"path/filepath"
 	"strings"
@@ -31,6 +32,45 @@ func thumbnailer(imagePath string, savePath string) error {
 	return nil
 }
 
+func cacheMetadataPicture(path string, savePath string) error {
+	tags, err := tag.ReadFile(path)
+	if err != nil {
+		logging.Error("error opening file: %s", err.Error())
+		return err
+	}
+
+	picture, err := tags.GetPicture()
+	if err != nil {
+		logging.Error(`Error getting media picture: %s`, err.Error())
+		return err
+	}
+
+	if picture != nil {
+		// song.mp3
+		fileName := filepath.Base(path)
+		index := strings.Index(fileName, ".")
+		// song_artwork.jpg
+		artworkName := fileName[:index] + "_artwork" + ".jpg"
+		savePath = filepath.Join(filepath.Dir(savePath), artworkName)
+
+		if err = os.MkdirAll(filepath.Dir(savePath), os.ModePerm); err != nil {
+			logging.Error(`Error creating parent directory for file: "%s". Error is: "%s"`, savePath, err.Error())
+			return err
+		}
+
+		if err = imaging.Save(picture, savePath); err != nil {
+			logging.Error(`Error saving image thumbnail for file at location: "%s". Error is: "%s"`, savePath, err.Error())
+			return err
+		}
+		logging.Info("Thumbnail image saved for file: %s", path)
+		return nil
+	}
+
+	logging.Info("Thumbnail image not found for file: %s", path)
+	return nil
+}
+
+
 func fillCache(root string) error {
 	filepath.Walk(root, fillCacheWalkFunc)
 	return nil
@@ -57,6 +97,8 @@ func fillCacheWalkFunc(path string, info os.FileInfo, err error) error {
 			contentType := getContentType(path)
 			if strings.Contains(contentType, "image") {
 				thumbnailer(path, thumbnailPath)
+			} else {
+				cacheMetadataPicture(path, thumbnailPath)
 			}
 		}
 	} else {
