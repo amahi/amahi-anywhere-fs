@@ -330,7 +330,8 @@ func (service *MercuryFsService) serveFile(writer http.ResponseWriter, request *
 	} else {
 		writer.Header().Set("Last-Modified", mtime)
 		writer.Header().Set("ETag", etag)
-		writer.Header().Set("Cache-Control", "max-age=0, private, must-revalidate")
+		//writer.Header().Set("Cache-Control", "max-age=0, private, must-revalidate")
+		writer.Header().Set("Cache-Control", "max-age=60")
 		debug(4, "Etag sent: %s", etag)
 		http.ServeContent(writer, request, fullPath, fi.ModTime(), osFile)
 		service.accessLog(logging, request, http.StatusOK, int(fi.Size()))
